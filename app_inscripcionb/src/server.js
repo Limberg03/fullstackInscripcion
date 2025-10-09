@@ -96,14 +96,16 @@ if (SERVER_CONFIG.enableClustering && cluster.isMaster) {
   // ================ PROCESO WORKER O DESARROLLO ================
   const startWorker = async () => {
     try {
-      // Importar TU app.js existente
+      // Importar TU app.js existente (que YA tiene CORS configurado)
       const { app, initializeApp, queueService, callbackService } = require('./app');
       
-      
+      // 🔥 CRÍTICO: Inicializar la app PRIMERO (esto aplica CORS)
       await initializeApp();
+      
+      // 🔥 IMPORTANTE: Rate limiter DESPUÉS de CORS
       app.use('/api', rateLimitMiddleware);
       
-      // Headers de optimización
+      // Headers de optimización (NO interfieren con CORS porque van después)
       app.use((req, res, next) => {
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('Keep-Alive', 'timeout=65');
@@ -184,8 +186,14 @@ if (SERVER_CONFIG.enableClustering && cluster.isMaster) {
       // 5. INICIAR SERVIDOR
       server.listen(SERVER_CONFIG.port, SERVER_CONFIG.backlog, () => {
         const workerInfo = cluster.worker ? `Worker ${cluster.worker.id}` : 'Single process';
+        console.log(`🚀 ${workerInfo} listening on port ${SERVER_CONFIG.port}`);
+        console.log(`📡 CORS enabled for: http://localhost:5173`);
+        console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
         
         if (!cluster.worker || cluster.worker.id === 1) {
+          console.log(`\n✅ Server ready to accept connections`);
+          console.log(`   - Health check: http://localhost:${SERVER_CONFIG.port}/health`);
+          console.log(`   - API endpoint: http://localhost:${SERVER_CONFIG.port}/grupos-materia`);
         }
       });
       

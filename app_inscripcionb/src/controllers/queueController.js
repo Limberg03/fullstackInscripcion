@@ -1,5 +1,6 @@
 const QueueService = require("../services/QueueService");
 const { validationResult } = require("express-validator");
+// const { queueService } = require('../app');
 
 let queueService = null;
 

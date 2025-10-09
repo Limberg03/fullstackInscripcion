@@ -10,8 +10,6 @@ const { sequelize } = require('./models/index');
 const routes = require('./routes/index');
 const routesSync = require('./routes_sync/index');
 
-
-
 const queueRoutes = require('./routes/queueRoutes');
 const trackingRoutes = require('./routes/trackingRoutes');
 const { notFound, errorHandler, requestLogger } = require('./middleware/index');
@@ -23,52 +21,57 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ================ MIDDLEWARE Y CONFIGURACIÓN ================
+
+// 🔥 CRÍTICO: CORS debe ir ANTES de Helmet
+app.use(cors({
+  origin: '*',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Helmet DESPUÉS de CORS
 app.use(
   helmet({
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // ✅ AÑADIDO
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "script-src": [
           "'self'", 
           "'unsafe-inline'", 
-          "https://cdnjs.cloudflare.com"  // ✅ Agregar esto
+          "https://cdnjs.cloudflare.com"
         ],
         "img-src": [
           "'self'", 
           "data:", 
-          "https:"  // Para imágenes de Chart.js
+          "https:"
         ],
         "connect-src": [
           "'self'", 
-          "https://cdnjs.cloudflare.com"  // Para fetch de Chart.js
+          "https://cdnjs.cloudflare.com",
+          "http://localhost:5173", // Frontend en desarrollo
+          "http://localhost:3000"  // API
         ]
       },
     },
   })
 );
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com'] 
-    : ['http://localhost:3000', 'http://localhost:3001'],
-  credentials: true
-}));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use(requestTrackingMiddleware);
-
-  app.use(requestLogger);
-
+app.use(requestLogger);
 
 // ================ RUTAS ================
 app.use('/public', express.static(path.join(__dirname, 'public')));
-
 
 app.use('/tracking', trackingRoutes);
 app.use('/', routes); 
 app.use('/sync', routesSync); 
 app.use('/queue', queueRoutes);
-
 
 // Ruta raíz para health check
 app.get('/', (req, res) => {
@@ -94,12 +97,12 @@ const initializeApp = async () => {
 
     // 1. Conectar a PostgreSQL
     await sequelize.authenticate();
-    console.log('Conexión a PostgreSQL establecida.');
+    console.log('✅ Conexión a PostgreSQL establecida.');
 
     // 2. Inicializar servicios
     callbackService = new CallbackService();
     callbackService.setupDefaultCallbacks();
-    console.log(' Sistema de Callbacks inicializado.');
+    console.log('✅ Sistema de Callbacks inicializado.');
 
     queueService = new QueueService();
     await queueService.initialize();
@@ -108,13 +111,13 @@ const initializeApp = async () => {
     // 3. Verificar conexión a Redis
     const redisInfo = await queueService.getRedisInfo();
 
-
-    
-
     if (process.env.NODE_ENV === 'development') {
       await sequelize.sync();
       console.log('✅ Modelos sincronizados con la base de datos.');
     }
+
+    console.log('✅ Aplicación inicializada correctamente.');
+    console.log('📡 CORS habilitado para: http://localhost:5173');
     
   } catch (error) {
     console.error('❌ Error fatal al inicializar la aplicación:', error.message);
@@ -160,7 +163,7 @@ if (require.main === module) {
 
 module.exports = { 
   app, 
-   initializeApp,
+  initializeApp,
   queueService: () => queueService, 
   callbackService: () => callbackService 
 };
