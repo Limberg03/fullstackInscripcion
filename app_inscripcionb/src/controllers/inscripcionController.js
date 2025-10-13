@@ -52,15 +52,15 @@ requestSeat: async (req, res) => {
         });
       }
 
-      if (grupo.cupo <= 0) {
-        return res.status(409).json({
-          success: false,
-          status: 'rejected',
-          reason: 'no_seats_available',
-          message: `Sin cupos disponibles en grupo ${grupo.grupo}`,
-          //cuposRestantes: 0
-        });
-      }
+      // if (grupo.cupo <= 0) {
+      //   return res.status(409).json({
+      //     success: false,
+      //     status: 'rejected',
+      //     reason: 'no_seats_available',
+      //     message: `Sin cupos disponibles en grupo ${grupo.grupo}`,
+      //     //cuposRestantes: 0
+      //   });
+      // }
 
       const existingInscription = await Inscripcion.findOne({
         where: {
@@ -68,10 +68,6 @@ requestSeat: async (req, res) => {
           grupoMateriaId
         }
       });
-
-
-
-
 
       if (existingInscription) {
         return res.status(409).json({
@@ -83,6 +79,9 @@ requestSeat: async (req, res) => {
       }
 
       const service = getQueueService();
+
+      await service.initialize();
+      const workersActive = await service.areAnyWorkersActive();
       
       const result = await service.enqueueTaskAutoBalance({
         type: 'inscription',
@@ -96,12 +95,11 @@ requestSeat: async (req, res) => {
       });
 
       console.log(`✅ Solicitud encolada en: ${result.queueName} (cupos disponibles: ${grupo.cupo})`);
+      console.log(`   Workers activos en el sistema: ${workersActive}`);
 
       res.status(202).json({
         ...result,
-        message: 'Seat request queued successfully',
-        status: 'pending'
-        //cuposDisponibles: grupo.cupo
+        message: 'Seat request queued successfully',       
       });
     } catch (error) {
       console.error("Error in requestSeat:", error);

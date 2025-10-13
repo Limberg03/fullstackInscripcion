@@ -23,6 +23,8 @@ const notaRoutes = require('./notaRoutes');
 const prerequisitoRoutes = require('./prerequisitoRoutes');
 const planEstudioRoutes = require('./planEstudioRoutes');
 
+const trackingRoutes = require('./trackingRoutes');
+
 router.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -88,6 +90,8 @@ router.use('/horarios', horarioRoutes);
 router.use('/notas', notaRoutes);
 router.use('/prerequisitos', prerequisitoRoutes);
 router.use('/planes-estudio', planEstudioRoutes);
+router.use('/', trackingRoutes);
+
 
 
 

@@ -3,7 +3,19 @@ const express = require('express');
 const requestTracker = require('../services/RequestTracker');
 const router = express.Router();
 
+const trackingController = require('../controllers/trackingController');
+
 // ================ ESTADÍSTICAS GENERALES ================
+
+
+
+// ... (otras rutas de tracking que puedas tener)
+
+// ✅ PASO 2: La ruta ahora solo llama al método del controlador
+// He usado '/reset' para que coincida con la URL que probaste
+router.post('/reset', trackingController.hardReset);
+
+
 
 // Obtener estadísticas completas
 router.get('/stats', (req, res) => {

@@ -52,7 +52,8 @@ app.use(
           "'self'", 
           "https://cdnjs.cloudflare.com",
           "http://localhost:5173", // Frontend en desarrollo
-          "http://localhost:3000"  // API
+          "http://localhost:3000",  // API
+          "http://192.168.1.9:3000"
         ]
       },
     },
@@ -158,7 +159,12 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // ================ INICIO DE LA APLICACIÓN ================
 if (require.main === module) {
-  initializeApp();
+  initializeApp().then(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Servidor escuchando en http://0.0.0.0:${PORT}`);
+      console.log(`🌐 Accesible desde red local: http://192.168.1.9:${PORT}`);
+    });
+  });
 }
 
 module.exports = { 
