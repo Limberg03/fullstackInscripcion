@@ -4,12 +4,14 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+import { AuthProvider } from './context/AuthContext';
+import Header from './components/Header';
 import InscriptionPage from './pages/InscriptionPage';
 
 function App() {
   return (
+    <AuthProvider>
     <Router>
-      {/* El ToastContainer permite que las notificaciones aparezcan en cualquier lugar */}
       <ToastContainer 
         position="bottom-right"
         autoClose={5000}
@@ -21,14 +23,20 @@ function App() {
         draggable
         pauseOnHover
       />
-
+        <Header />
       <Routes>
         <Route path="/" element={<InscriptionPage />} />
-        {/* Aquí podrías añadir más rutas en el futuro */}
         {/* <Route path="/perfil" element={<ProfilePage />} /> */}
       </Routes>
     </Router>
+    </AuthProvider>
   );
 }
 
 export default App;
+
+
+/*
+/*
+
+*/

@@ -22,6 +22,27 @@ class QueueService {
     console.log('✅ QueueService with Redis initialized');
   }
 
+  async areAnyWorkersActive() {
+    if (!this.initialized) await this.initialize();
+
+    // Si no hay workers registrados en el manager, ninguno está activo.
+    if (this.queueManager.workers.size === 0) {
+      return false;
+    }
+
+    // Iteramos sobre todos los workers para ver si al menos uno está activo.
+    for (const worker of this.queueManager.workers.values()) {
+      if (worker.isRunning && !worker.isPaused) {
+        // Encontramos uno activo, no es necesario seguir buscando.
+        return true;
+      }
+    }
+
+    // Si el bucle termina, significa que ninguno estaba activo.
+    return false;
+  }
+
+
   async enqueueTask(queueName, taskData) {
     if (!this.initialized) await this.initialize();
     

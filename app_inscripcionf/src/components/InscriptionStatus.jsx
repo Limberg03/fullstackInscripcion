@@ -6,6 +6,8 @@ const statusStyles = {
   rejected: { backgroundColor: '#d9534f', color: 'white' },
   idle: { backgroundColor: '#777', color: 'white' },
   sending: { backgroundColor: '#337ab7', color: 'white' },
+
+  full: { backgroundColor: '#d9534f', color: 'white' },
 };
 
 const statusLabels = {
@@ -14,6 +16,7 @@ const statusLabels = {
   rejected: 'Rechazado ❌',
   idle: 'Disponible',
   sending: 'Enviando...',
+  //  full: 'Sin Cupo',
 };
 
 const InscriptionStatus = ({ status }) => {

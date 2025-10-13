@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-// Configura la URL base de tu API de Node.js
 const API_URL = 'http://localhost:3000';
 
 const api = axios.create({
@@ -10,13 +9,10 @@ const api = axios.create({
   },
 });
 
-/**
- * Obtiene la lista de grupos de materias disponibles.
- */
 export const getGruposMateria = async () => {
   try {
-    const response = await api.get('/grupos-materia'); // Solo grupos activos
-    return response.data.data; // Devuelve el array de grupos
+    const response = await api.get('/grupos-materia'); 
+    return response.data.data; 
   } catch (error) {
     console.error("Error fetching grupos de materia:", error);
     throw error.response?.data || { message: "Error de red" };
@@ -30,7 +26,7 @@ export const getGruposMateria = async () => {
 export const requestSeat = async (data) => {
   try {
     // La API espera un 202 (Accepted) si la tarea se encola
-    const response = await api.post('/inscripciones/request-seat', data);
+    const response = await api.post('/inscripciones/request', data);
     return response.data;
   } catch (error) {
     console.error("Error requesting seat:", error);
@@ -62,13 +58,13 @@ export const getTaskStatus = async (queueName, taskId) => {
  * @param {number} estudianteId - El ID del estudiante
  */
 export const getInscripcionesByEstudiante = async (estudianteId) => {
-  if (!estudianteId) return []; // No hacer la petición si no hay ID
+  if (!estudianteId) return []; 
   try {
     const response = await api.get(`/inscripciones/estudiante/${estudianteId}`);
-    return response.data.data; // Devuelve el array de inscripciones
+    
+    return response.data.data; 
   } catch (error) {
     console.error("Error fetching inscripciones:", error);
-    // Devuelve un array vacío en caso de error para no romper la UI
     return [];
   }
 };

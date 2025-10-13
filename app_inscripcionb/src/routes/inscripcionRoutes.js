@@ -11,7 +11,9 @@ router.put('/:id', validators.inscripcion.update, inscripcionController.update);
 router.delete('/:id', validators.common.idParam, inscripcionController.delete);
 router.get('/estudiante/:estudianteId', validators.common.idParam, inscripcionController.getByEstudiante);
 
-router.post('/request-seat',
+
+
+router.post('/request',
   [
     body('estudianteId').isInt({ min: 1 }).withMessage('Valid estudianteId required'),
     body('grupoMateriaId').isInt({ min: 1 }).withMessage('Valid grupoMateriaId required'),
@@ -20,6 +22,7 @@ router.post('/request-seat',
   inscripcionController.requestSeat
   
 );
+
 
 // router.get('/request-seat',
 // [
@@ -31,3 +34,12 @@ router.post('/request-seat',
 
 
 module.exports = router;
+
+
+/*
+ahora  necesito que haga en flutter asi como lo hizo en react, pero hagalo
+lo mas basico posible envie una request id unico 
+deshabilite el boton durante el proceso 
+muestre los estados loading, success o error
+
+*/
