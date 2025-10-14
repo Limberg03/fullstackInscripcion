@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const sequelize = require('../config/database'); // Asegúrate que la ruta a tu config es correcta
 
 const GrupoMateria = sequelize.define('GrupoMateria', {
   id: {
@@ -10,7 +10,8 @@ const GrupoMateria = sequelize.define('GrupoMateria', {
   grupo: {
     type: DataTypes.STRING(10),
     allowNull: false,
-      unique: true, 
+    // Se elimina 'unique: true' de aquí. El mismo nombre de grupo (ej. 'SA')
+    // puede existir para diferentes materias.
     validate: {
       notEmpty: true,
       len: [1, 10]
@@ -39,7 +40,7 @@ const GrupoMateria = sequelize.define('GrupoMateria', {
       key: 'id'
     }
   },
-   horarioId: {
+  horarioId: {
     type: DataTypes.INTEGER,
     allowNull: false,
     field: 'horario_id',
@@ -47,8 +48,7 @@ const GrupoMateria = sequelize.define('GrupoMateria', {
       model: 'horarios',
       key: 'id'
     }
-  },    
-
+  },
   cupo: {
     type: DataTypes.INTEGER,
     allowNull: false,
@@ -56,13 +56,19 @@ const GrupoMateria = sequelize.define('GrupoMateria', {
       notEmpty: true
     }
   },
-
-  
 }, {
   tableName: 'grupos_materia',
   timestamps: true,
   createdAt: 'created_at',
-  updatedAt: 'updated_at'
+  updatedAt: 'updated_at',
+  // Se agrega un índice único compuesto para asegurar que la combinación
+  // de 'materia_id' y 'grupo' sea única.
+  indexes: [
+    {
+      unique: true,
+      fields: ['materia_id', 'grupo']
+    }
+  ]
 });
 
 module.exports = GrupoMateria;

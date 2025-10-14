@@ -3,11 +3,14 @@ import {
   getGruposMateria,
   getInscripcionesByEstudiante,
 } from "../api/apiService";
+import { useParams, Link } from 'react-router-dom';
 import GrupoMateriaCard from "../components/GrupoMateriaCard";
 import { useAuth } from "../context/AuthContext";
 import "./InscriptionPage.css"; // Importa el CSS
 
 const InscriptionPage = () => {
+const { materiaId } = useParams();
+
   const [grupos, setGrupos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -15,20 +18,22 @@ const InscriptionPage = () => {
   const { currentStudentId } = useAuth();
 
   useEffect(() => {
-    if (!currentStudentId) {
-      setGrupos([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
+    // if (!currentStudentId) {
+    //   setGrupos([]);
+    //   setLoading(false);
+    //   return;
+    // }
+if (!currentStudentId || !materiaId) return;
 
     const fetchData = async () => {
+    setLoading(true);
+
       try {
         const pendingTasksJSON = localStorage.getItem('pendingInscriptions');
         const pendingTasks = pendingTasksJSON ? JSON.parse(pendingTasksJSON) : {};
         const [gruposData, inscripcionesData] = await Promise.all([
-          getGruposMateria(),
+             getGruposMateria(materiaId),
+          // getGruposMateria(),
           getInscripcionesByEstudiante(currentStudentId),
         ]);
 
@@ -54,12 +59,12 @@ const InscriptionPage = () => {
     };
 
     fetchData();
-  }, [currentStudentId]);
+  }, [currentStudentId, materiaId]);
 
   if (loading)
     return (
       <div className="page-container">
-        <h2>Cargando cursos disponibles...</h2>
+        <h2>Cargando grupos...</h2>
       </div>
     );
   if (error)
@@ -71,25 +76,33 @@ const InscriptionPage = () => {
 
   return (
     <div className="page-container">
-      <header className="page-header">
-        <h1>Sistema de Inscripción Académica</h1>
-        <p>Selecciona las materias en las que deseas inscribirte.</p>
+      <header style={{ textAlign: 'center', marginBottom: '30px' }}>
+        {/* ✅ Añadimos un enlace para volver a la lista principal */}
+        <Link to="/" style={{ textDecoration: 'none', color: '#007bff' }}>&larr; Volver a todas las materias</Link>
+        <h1 style={{ marginTop: '10px' }}>Grupos Disponibles</h1>
       </header>
       <main>
         <div className="cards-container">
-          {grupos.map((grupo) => (
-            <GrupoMateriaCard
-              key={`${currentStudentId}-${grupo.id}`}
-              grupo={grupo}
-              studentId={currentStudentId} 
-              isEnrolled={grupo.isEnrolled}
-              pendingTask={grupo.pendingTask}
-            />
-          ))}
+           {grupos.length > 0 ? (
+            grupos.map((grupo) => (
+              <GrupoMateriaCard 
+                key={`${currentStudentId}-${grupo.id}`}
+                grupo={grupo} 
+                studentId={currentStudentId}
+                isEnrolled={grupo.isEnrolled} 
+                pendingTask={grupo.pendingTask}
+              />
+            ))
+          ) : (
+            <p>No hay grupos disponibles para esta materia.</p>)}
         </div>
       </main>
     </div>
   );
 };
+
+const pageStyle = { fontFamily: 'sans-serif', padding: '20px' };
+const gridStyle = { display: 'flex', flexWrap: 'wrap', justifyContent: 'center' };
+
 
 export default InscriptionPage;

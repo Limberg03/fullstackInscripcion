@@ -65,9 +65,18 @@ class Materia {
   final int id;
   final String nombre;
   final String sigla;
-  Materia({required this.id, required this.nombre, required this.sigla});
+ final int creditos;
+  final String nivel;
+
+  Materia({required this.id, required this.nombre, required this.sigla,required this.creditos,
+    required this.nivel});
   factory Materia.fromJson(Map<String, dynamic> json) {
-    return Materia(id: json['id'], nombre: json['nombre'], sigla: json['sigla']);
+    return Materia(id: json['id'], 
+    nombre: json['nombre'], 
+    sigla: json['sigla'], 
+    creditos: json['creditos'] ?? 0,
+    nivel: json['nivel']?['nombre'] ?? 'Nivel no definido', 
+    );
   }
 }
 

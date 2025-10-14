@@ -5,18 +5,36 @@ import 'models/grupo_materia.dart';
 
 class ApiService {
   // static const String _baseUrl = 'http://10.0.2.2:3000';
-   static const String _baseUrl = 'http://192.168.1.9:3000';
-   //static const String _baseUrl = 'http://localhost:3000';
+   //static const String _baseUrl = 'http://192.168.1.9:3000';
+   static const String _baseUrl = 'http://localhost:3000';
 
-  // Obtiene la lista de todos los grupos de materias
-  static Future<List<GrupoMateria>> getGruposMateria() async {
-    final url = Uri.parse('$_baseUrl/grupos-materia');
+  static Future<List<Materia>> getMaterias() async {
+    final url = Uri.parse('$_baseUrl/materias'); // Traemos hasta 100 materias
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body)['data'];
+        // Usamos el constructor actualizado de Materia
+        return data.map((json) => Materia.fromJson(json)).toList();
+      } else {
+        throw Exception('Failed to load materias');
+      }
+    } catch (e) {
+      print('Error en getMaterias: ${e.toString()}');
+      rethrow;
+    }
+  }
+
+  // ✅ MODIFICAR getGruposMateria para que acepte un materiaId
+  static Future<List<GrupoMateria>> getGruposMateria(int materiaId) async {
+    // La URL ahora siempre filtra por un materiaId
+    final url = Uri.parse('$_baseUrl/grupos-materia?materiaId=$materiaId');
     final response = await http.get(url);
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body)['data'];
       return data.map((json) => GrupoMateria.fromJson(json)).toList();
     } else {
-      throw Exception('Failed to load materias');
+      throw Exception('Failed to load grupos for materia $materiaId');
     }
   }
 
@@ -43,13 +61,7 @@ class ApiService {
         body: json.encode({'estudianteId': estudianteId, 'grupoMateriaId': grupoMateriaId}),
       );
 
-      // --- DEBUG PRINT ---
-      print('--- Respuesta del Servidor ---');
-      print('Status Code: ${response.statusCode}');
-      print('Response Body: ${response.body}');
-      print('---------------------------');
-      // --------------------
-
+      
       if (response.statusCode == 202) {
         return json.decode(response.body);
       } else {

@@ -7,6 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider } from './context/AuthContext';
 import Header from './components/Header';
 import InscriptionPage from './pages/InscriptionPage';
+import MateriasListPage from './pages/MateriasListPage';
 
 function App() {
   return (
@@ -24,10 +25,12 @@ function App() {
         pauseOnHover
       />
         <Header />
-      <Routes>
-        <Route path="/" element={<InscriptionPage />} />
-        {/* <Route path="/perfil" element={<ProfilePage />} /> */}
-      </Routes>
+       <Routes>
+          {/* ✅ La ruta raíz ahora muestra la lista de materias */}
+          <Route path="/" element={<MateriasListPage />} />
+          {/* ✅ La página de inscripción ahora es una ruta de detalle */}
+          <Route path="/materia/:materiaId" element={<InscriptionPage />} />
+        </Routes>
     </Router>
     </AuthProvider>
   );
