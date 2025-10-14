@@ -21,7 +21,7 @@ module.exports = {
         { grupo: 'SC', estado: true, materia_id: materias[0].id, docente_id: docentes[1].id, horario_id: getHorario(1), cupo: 30, created_at: new Date(), updated_at: new Date() },
         
         // Materia 1: ALGEBRA LINEAL
-        { grupo: 'SA', estado: true, materia_id: materias[1].id, docente_id: docentes[2].id, horario_id: getHorario(2), cupo: 25, created_at: new Date(), updated_at: new Date() },
+        { grupo: 'SA', estado: true, materia_id: materias[1].id, docente_id: docentes[2].id, horario_id: getHorario(2), cupo: 2, created_at: new Date(), updated_at: new Date() },
         { grupo: 'SE', estado: true, materia_id: materias[1].id, docente_id: docentes[3].id, horario_id: getHorario(3), cupo: 25, created_at: new Date(), updated_at: new Date() },
         { grupo: 'SF', estado: true, materia_id: materias[1].id, docente_id: docentes[4].id, horario_id: getHorario(4), cupo: 25, created_at: new Date(), updated_at: new Date() },
         
