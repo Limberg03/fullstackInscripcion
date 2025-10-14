@@ -8,7 +8,7 @@ module.exports = {
       { type: Sequelize.QueryTypes.SELECT }
     );
 
-    // ⬇️ AGREGAR ESTA CONSULTA PARA PLANES DE ESTUDIO:
+    // Obtener planes de estudio
     const planesEstudio = await queryInterface.sequelize.query(
       'SELECT id, nombre FROM planes_estudio ORDER BY id LIMIT 1',
       { type: Sequelize.QueryTypes.SELECT }
@@ -25,120 +25,193 @@ module.exports = {
 
     const planEstudioId = planesEstudio[0].id; // Usar el primer plan de estudio
 
+    // Seeder con 20 materias del PDF con docente asignado
     await queryInterface.bulkInsert('materias', [
-      // Primer Semestre
+      // Nivel 1
       {
-        nombre: 'Matemáticas I',
-        sigla: 'MAT-I',
+        nombre: 'ADMINISTRACION',
+        sigla: 'ADM100',
         creditos: 4,
         nivel_id: niveles[0].id,
-        plan_estudio_id: planEstudioId, 
+        plan_estudio_id: planEstudioId,
         created_at: new Date(),
         updated_at: new Date()
       },
       {
-        nombre: 'Introducción a la Programación',
-        sigla: 'PROG-I',
+        nombre: 'ALGEBRA LINEAL',
+        sigla: 'MAT103',
         creditos: 4,
         nivel_id: niveles[0].id,
-        plan_estudio_id: planEstudioId, 
+        plan_estudio_id: planEstudioId,
         created_at: new Date(),
         updated_at: new Date()
       },
       {
-        nombre: 'Física I',
-        sigla: 'FIS-I',
+        nombre: 'CALCULO I',
+        sigla: 'MAT101',
+        creditos: 5,
+        nivel_id: niveles[0].id,
+        plan_estudio_id: planEstudioId,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
+      {
+        nombre: 'ESTRUCTURAS DISCRETAS',
+        sigla: 'INF119',
         creditos: 4,
         nivel_id: niveles[0].id,
-        plan_estudio_id: planEstudioId, 
+        plan_estudio_id: planEstudioId,
         created_at: new Date(),
         updated_at: new Date()
       },
-      // Segundo Semestre
+      // Nivel 2
       {
-        nombre: 'Matemáticas II',
-        sigla: 'MAT-II',
+        nombre: 'ANALISIS DE CIRCUITOS',
+        sigla: 'RDS210',
         creditos: 4,
         nivel_id: niveles[1].id,
-        plan_estudio_id: planEstudioId, 
+        plan_estudio_id: planEstudioId,
         created_at: new Date(),
         updated_at: new Date()
       },
       {
-        nombre: 'Programación Orientada a Objetos',
-        sigla: 'POO',
-        creditos: 4,
+        nombre: 'ARQUITECTURA DE COMPUTADORAS',
+        sigla: 'INF211',
+        creditos: 5,
         nivel_id: niveles[1].id,
-        plan_estudio_id: planEstudioId, 
+        plan_estudio_id: planEstudioId,
         created_at: new Date(),
         updated_at: new Date()
       },
       {
-        nombre: 'Física II',
-        sigla: 'FIS-II',
-        creditos: 4,
+        nombre: 'ESTRUCTURA DE DATOS I',
+        sigla: 'INF220',
+        creditos: 5,
         nivel_id: niveles[1].id,
-        plan_estudio_id: planEstudioId, 
+        plan_estudio_id: planEstudioId,
         created_at: new Date(),
         updated_at: new Date()
       },
-      // Tercer Semestre
       {
-        nombre: 'Estructura de Datos',
-        sigla: 'EST-DAT',
+        nombre: 'CALCULO II',
+        sigla: 'MAT102',
+        creditos: 5,
+        nivel_id: niveles[1].id,
+        plan_estudio_id: planEstudioId,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
+      // Nivel 3
+      {
+        nombre: 'BASE DE DATOS I',
+        sigla: 'INF312',
         creditos: 4,
         nivel_id: niveles[2].id,
-        plan_estudio_id: planEstudioId, 
+        plan_estudio_id: planEstudioId,
         created_at: new Date(),
         updated_at: new Date()
       },
       {
-        nombre: 'Base de Datos I',
-        sigla: 'BD-I',
+        nombre: 'ESTRUCTURAS DE DATOS II',
+        sigla: 'INF310',
+        creditos: 5,
+        nivel_id: niveles[2].id,
+        plan_estudio_id: planEstudioId,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
+      {
+        nombre: 'COMPILADORES',
+        sigla: 'INF329',
         creditos: 4,
         nivel_id: niveles[2].id,
-        plan_estudio_id: planEstudioId, 
+        plan_estudio_id: planEstudioId,
         created_at: new Date(),
         updated_at: new Date()
       },
-      // Cuarto Semestre
       {
-        nombre: 'Algoritmos y Complejidad',
-        sigla: 'ALG-COMP',
+        nombre: 'CONTABILIDAD',
+        sigla: 'ADM200',
+        creditos: 3,
+        nivel_id: niveles[2].id,
+        plan_estudio_id: planEstudioId,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
+      // Nivel 4
+      {
+        nombre: 'BASES DE DATOS II',
+        sigla: 'INF322',
         creditos: 4,
         nivel_id: niveles[3].id,
-        plan_estudio_id: planEstudioId, 
+        plan_estudio_id: planEstudioId,
         created_at: new Date(),
         updated_at: new Date()
       },
       {
-        nombre: 'Base de Datos II',
-        sigla: 'BD-II',
+        nombre: 'AUDITORIA INFORMATICA',
+        sigla: 'INF462',
         creditos: 4,
         nivel_id: niveles[3].id,
-        plan_estudio_id: planEstudioId, 
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      // Quinto Semestre
-      {
-        nombre: 'Ingeniería de Software I',
-        sigla: 'ING-SW-I',
-        creditos: 4,
-        nivel_id: niveles[4].id,
-        plan_estudio_id: planEstudioId, 
+        plan_estudio_id: planEstudioId,
         created_at: new Date(),
         updated_at: new Date()
       },
       {
-        nombre: 'Redes de Computadoras',
-        sigla: 'REDES',
-        creditos: 4,
-        nivel_id: niveles[4].id,
-        plan_estudio_id: planEstudioId, 
+        nombre: 'ECONOMIA PARA LA GESTION',
+        sigla: 'ECO300',
+        creditos: 3,
+        nivel_id: niveles[3].id,
+        plan_estudio_id: planEstudioId,
         created_at: new Date(),
         updated_at: new Date()
-      }
+      },
+      {
+        nombre: 'REDES I',
+        sigla: 'INF433',
+        creditos: 4,
+        nivel_id: niveles[3].id,
+        plan_estudio_id: planEstudioId,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
+      // Nivel 5
+      {
+        nombre: 'APLICACIONES CON MICROPROCESAD.',
+        sigla: 'RDS410',
+        creditos: 4,
+        nivel_id: niveles[4].id,
+        plan_estudio_id: planEstudioId,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
+      {
+        nombre: 'ARQUITECTURA DEL SOFTWARE',
+        sigla: 'INF552',
+        creditos: 4,
+        nivel_id: niveles[4].id,
+        plan_estudio_id: planEstudioId,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
+      {
+        nombre: 'CRIPTOGRAFIA Y SEGURIDAD',
+        sigla: 'ELC107',
+        creditos: 3,
+        nivel_id: niveles[4].id,
+        plan_estudio_id: planEstudioId,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
+      {
+        nombre: 'ECUACIONES DIFERENCIALES',
+        sigla: 'MAT207',
+        creditos: 5,
+        nivel_id: niveles[4].id,
+        plan_estudio_id: planEstudioId,
+        created_at: new Date(),
+        updated_at: new Date()
+      },
     ], {});
   },
 

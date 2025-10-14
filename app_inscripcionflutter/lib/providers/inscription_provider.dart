@@ -12,8 +12,9 @@ class InscriptionProvider with ChangeNotifier {
   bool _isLoading = true;
   bool get isLoading => _isLoading;
 
-  Future<void> fetchData(int studentId) async {
+  Future<void> fetchData(int studentId, int materiaId) async {
     _isLoading = true;
+     _grupos = []; 
     notifyListeners();
 
     try {
@@ -24,7 +25,7 @@ class InscriptionProvider with ChangeNotifier {
 
       // Cargar datos de la API en paralelo
       final [gruposData as List<GrupoMateria>, inscripcionesData as List<dynamic>] = await Future.wait([
-  ApiService.getGruposMateria(),
+  ApiService.getGruposMateria(materiaId),
   ApiService.getInscripcionesByEstudiante(studentId),
 ]);
       final enrolledGroupIds = inscripcionesData.map((insc) => insc['grupoMateria']['id']).toSet();

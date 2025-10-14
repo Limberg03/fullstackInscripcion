@@ -2,94 +2,63 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    // Función helper para obtener el ID de una materia por su nombre
-    const getMateriaIdByName = async (nombre) => {
+    // Función helper para obtener el ID de una materia por su sigla
+    const getMateriaIdBySigla = async (sigla) => {
       const result = await queryInterface.sequelize.query(
-        'SELECT id FROM materias WHERE nombre = ?',
+        'SELECT id FROM materias WHERE sigla = ? LIMIT 1',
         { 
-          replacements: [nombre],
+          replacements: [sigla],
           type: Sequelize.QueryTypes.SELECT 
         }
       );
       
       if (result.length === 0) {
-        throw new Error(`No se encontró la materia con nombre: ${nombre}`);
+        // Si no se encuentra, lanzamos un error claro.
+        throw new Error(`Error de consistencia: No se encontró en la BD la materia con sigla: ${sigla}`);
       }
       
       return result[0].id;
     };
 
-    // Obtener los IDs de todas las materias que necesitamos
-    const matI_id = await getMateriaIdByName('Matemáticas I');
-    const matII_id = await getMateriaIdByName('Matemáticas II');
-    const progI_id = await getMateriaIdByName('Introducción a la Programación');
-    const poo_id = await getMateriaIdByName('Programación Orientada a Objetos');
-    const fisI_id = await getMateriaIdByName('Física I');
-    const fisII_id = await getMateriaIdByName('Física II');
-    const estDat_id = await getMateriaIdByName('Estructura de Datos');
-    const bdI_id = await getMateriaIdByName('Base de Datos I');
-    const bdII_id = await getMateriaIdByName('Base de Datos II');
-    const algComp_id = await getMateriaIdByName('Algoritmos y Complejidad');
-    const ingSwI_id = await getMateriaIdByName('Ingeniería de Software I');
+    // Estructura de prerrequisitos corregida y consistente con las 20 materias existentes.
+    // Formato: [materia_que_requiere, materia_requerida]
+    const prerequisitosMap = [
+      // Prerrequisitos validados que existen en la BD
+      ['MAT-102', 'MAT-101'], // CALCULO II -> CALCULO I
+      ['MAT-103', 'INF-119'], // ALGEBRA LINEAL -> ESTRUCTURAS DISCRETAS
+      ['MAT-207', 'MAT-102'], // ECUACIONES DIFERENCIALES -> CALCULO II
+      ['INF-310', 'INF-220'], // ESTRUCTURAS DE DATOS II -> ESTRUCTURA DE DATOS I
+      ['INF-322', 'INF-312'], // BASES DE DATOS II -> BASE DE DATOS I
+      ['ADM-200', 'ADM-100'], // CONTABILIDAD -> ADMINISTRACION
+      ['ECO-300', 'ADM-200'], // ECONOMIA PARA LA GESTION -> CONTABILIDAD
+    ];
 
-    await queryInterface.bulkInsert('prerequisitos', [
-      // Matemáticas II requiere Matemáticas I
-      {
-        materia_id: matII_id,
-        requiere_id: matI_id,
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      // POO requiere Introducción a la Programación
-      {
-        materia_id: poo_id,
-        requiere_id: progI_id,
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      // Física II requiere Física I
-      {
-        materia_id: fisII_id,
-        requiere_id: fisI_id,
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      // Base de Datos I requiere POO
-      {
-        materia_id: bdI_id,
-        requiere_id: poo_id,
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      // Estructura de Datos requiere POO
-      {
-        materia_id: estDat_id,
-        requiere_id: poo_id,
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      // Algoritmos y Complejidad requiere Estructura de Datos
-      {
-        materia_id: algComp_id,
-        requiere_id: estDat_id,
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      // Base de Datos II requiere Base de Datos I
-      {
-        materia_id: bdII_id,
-        requiere_id: bdI_id,
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      // Ingeniería de Software I requiere Estructura de Datos
-      {
-        materia_id: ingSwI_id,
-        requiere_id: estDat_id,
-        created_at: new Date(),
-        updated_at: new Date()
+    const prerequisitosParaInsertar = [];
+
+    // Usamos un bucle for...of para manejar correctamente las promesas con await
+    for (const [materiaSigla, requiereSigla] of prerequisitosMap) {
+      try {
+        const materia_id = await getMateriaIdBySigla(materiaSigla);
+        const requiere_id = await getMateriaIdBySigla(requiereSigla);
+        
+        prerequisitosParaInsertar.push({
+          materia_id: materia_id,
+          requiere_id: requiere_id,
+          created_at: new Date(),
+          updated_at: new Date()
+        });
+      } catch (error) {
+        // Si ocurre un error, lo mostramos en consola para facilitar la depuración.
+        console.error(`Error al procesar el prerrequisito [${materiaSigla} -> ${requiereSigla}]: ${error.message}. Omitiendo este registro.`);
       }
-    ], {});
+    }
+
+    if (prerequisitosParaInsertar.length > 0) {
+      await queryInterface.bulkInsert('prerequisitos', prerequisitosParaInsertar, {});
+      console.log(`Se insertaron ${prerequisitosParaInsertar.length} prerrequisitos consistentes.`);
+    } else {
+      console.log('No se insertaron nuevos prerrequisitos.');
+    }
   },
 
   down: async (queryInterface, Sequelize) => {

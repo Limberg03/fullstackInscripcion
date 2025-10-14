@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/inscription_provider.dart';
 import 'screens/inscription_screen.dart';
+import 'screens/materias_list_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -26,7 +27,7 @@ class MyApp extends StatelessWidget {
           primarySwatch: Colors.indigo,
           visualDensity: VisualDensity.adaptivePlatformDensity,
         ),
-        home: const InscriptionScreen(),
+        home: const MateriasListScreen(),
       ),
     );
   }

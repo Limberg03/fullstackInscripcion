@@ -9,10 +9,26 @@ const api = axios.create({
   },
 });
 
-export const getGruposMateria = async () => {
+export const getMaterias = async () => {
   try {
-    const response = await api.get('/grupos-materia'); 
-    return response.data.data; 
+    const response = await api.get('/materias'); // Traemos hasta 100 materias
+    return response.data.data;
+  } catch (error) {
+    console.error("Error fetching materias:", error);
+    throw error.response?.data || { message: "Error de red" };
+  }
+};
+
+// ✅ MODIFICAR getGruposMateria para que acepte un filtro
+export const getGruposMateria = async (materiaId = null) => {
+  try {
+    // Si se provee un materiaId, se añade como parámetro a la URL
+    const url = materiaId
+      ? `/grupos-materia?materiaId=${materiaId}`
+      : '/grupos-materia';
+      
+    const response = await api.get(url);
+    return response.data.data;
   } catch (error) {
     console.error("Error fetching grupos de materia:", error);
     throw error.response?.data || { message: "Error de red" };
