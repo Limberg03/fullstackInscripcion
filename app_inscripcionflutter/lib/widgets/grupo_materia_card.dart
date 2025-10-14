@@ -57,11 +57,6 @@ class _GrupoMateriaCardState extends State<GrupoMateriaCard> {
           taskInfo['taskId'],
         );
 
-        print('======================================================');
-        print('POLLING: Task ID -> ${taskInfo['taskId']}');
-        print('POLLING: RECIBIDO DEL BACKEND -> Status: "${task['status']}"');
-        print('======================================================');
-
         if (task['status'] == 'completed' || task['status'] == 'failed' || task['status'] == 'error') {
           print('!!! ESTADO FINAL DETECTADO: "${task['status']}". Deteniendo sondeo y actualizando UI.');
           
@@ -72,6 +67,7 @@ class _GrupoMateriaCardState extends State<GrupoMateriaCard> {
           final Map<String, dynamic> pending = json.decode(pendingJson);
           pending.remove(widget.grupo.id.toString());
           await prefs.setString('pendingInscriptions', json.encode(pending));
+
 
           final finalStatus = task['status'] == 'completed' 
             ? InscriptionStatus.confirmed 

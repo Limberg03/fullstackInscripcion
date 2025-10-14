@@ -13,7 +13,6 @@ class Horario {
   Horario({required this.dia, required this.horaInicio, required this.horaFin});
 
   factory Horario.fromJson(Map<String, dynamic> json) {
-    // Si el horario es nulo en el JSON, devolvemos valores por defecto.
     if (json == null) {
       return Horario(dia: 'No definido', horaInicio: '--:--', horaFin: '--:--');
     }
@@ -33,7 +32,6 @@ class GrupoMateria {
   final Docente docente;
    final Horario horario;
 
-  // Estos campos no vienen de la API, los manejaremos en el frontend
   InscriptionStatus status;
   Map<String, dynamic>? pendingTaskInfo;
 

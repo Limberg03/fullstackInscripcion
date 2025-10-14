@@ -9,7 +9,7 @@ class ApiService {
    static const String _baseUrl = 'http://localhost:3000';
 
   static Future<List<Materia>> getMaterias() async {
-    final url = Uri.parse('$_baseUrl/materias'); // Traemos hasta 100 materias
+    final url = Uri.parse('$_baseUrl/materias'); 
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -25,9 +25,7 @@ class ApiService {
     }
   }
 
-  // ✅ MODIFICAR getGruposMateria para que acepte un materiaId
   static Future<List<GrupoMateria>> getGruposMateria(int materiaId) async {
-    // La URL ahora siempre filtra por un materiaId
     final url = Uri.parse('$_baseUrl/grupos-materia?materiaId=$materiaId');
     final response = await http.get(url);
     if (response.statusCode == 200) {
@@ -38,7 +36,6 @@ class ApiService {
     }
   }
 
-  // Obtiene las inscripciones confirmadas de un estudiante
   static Future<List<dynamic>> getInscripcionesByEstudiante(
     int estudianteId,
   ) async {
@@ -47,11 +44,10 @@ class ApiService {
     if (response.statusCode == 200) {
       return json.decode(response.body)['data'];
     } else {
-      return []; // Devuelve lista vacía si hay error o no hay inscripciones
+      return []; 
     }
   }
 
-  // Solicita la inscripción
    static Future<Map<String, dynamic>> requestSeat(int estudianteId, int grupoMateriaId) async {
     final url = Uri.parse('$_baseUrl/inscripciones/request');
     try {
@@ -75,11 +71,9 @@ class ApiService {
   
   }
 
-  // Obtiene el estado de una tarea pendiente (Polling)
   static Future<Map<String, dynamic>> getTaskStatus(
     String queueName,
     String taskId,
-// router.get('/:queueName/tasks/:taskId',
   ) async {
     final url = Uri.parse('$_baseUrl/queue/$queueName/tasks/$taskId');
     final response = await http.get(url);
