@@ -7,7 +7,13 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 import '../models/grupo_materia.dart';
 import '../providers/auth_provider.dart';
+import '../providers/inscription_provider.dart';
+import '../screens/inscription_status_screen.dart';
+
 import '../api_service.dart';
+
+
+
 
 class GrupoMateriaCard extends StatefulWidget {
   final GrupoMateria grupo;
@@ -85,75 +91,45 @@ class _GrupoMateriaCardState extends State<GrupoMateriaCard> {
     });
   }
 
-  Future<void> _handleInscription() async {
+ Future<void> _handleInscription() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final inscriptionProvider = Provider.of<InscriptionProvider>(context, listen: false);
 
-    setState(() {
-      _currentStatus = InscriptionStatus.loading;
-    });
+    setState(() { _currentStatus = InscriptionStatus.loading; });
 
     try {
       final result = await ApiService.requestSeat(
         authProvider.currentStudentId!,
         widget.grupo.id,
       );
-
-      final prefs = await SharedPreferences.getInstance();
-      final pendingJson = prefs.getString('pendingInscriptions') ?? '{}';
-      final Map<String, dynamic> pending = json.decode(pendingJson);
-      final taskInfo = {
-        'taskId': result['taskId'],
-        'queueName': result['queueName'],
-      };
-      pending[widget.grupo.id.toString()] = taskInfo;
-      await prefs.setString('pendingInscriptions', json.encode(pending));
       
-      _pendingTaskInfo = taskInfo;
-      
-      setState(() {
-        _currentStatus = InscriptionStatus.pending;
-      });
-      _startPolling();
-      
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.info_outline, color: Colors.white, size: 18),
-              SizedBox(width: 8),
-              Text("Solicitud en cola...", style: TextStyle(fontSize: 14)),
-            ],
-          ),
-          backgroundColor: Colors.blue.shade700,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
+      inscriptionProvider.requestSeatAndUpdateState(
+        authProvider.currentStudentId!, 
+        widget.grupo.id
       );
 
+      await navigator.push(
+        MaterialPageRoute(
+          builder: (context) => InscriptionStatusScreen(
+            taskId: result['taskId'],
+            queueName: result['queueName'],
+          ),
+        ),
+      );
+      
+      if(mounted){
+         setState(() {
+           _currentStatus = inscriptionProvider.grupos.firstWhere((g) => g.id == widget.grupo.id).status;
+         });
+      }
     } catch (e) {
-      setState(() {
-        _currentStatus = InscriptionStatus.rejected;
-      });
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  e.toString().replaceFirst('Exception: ', ''),
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
+      if (mounted) { setState(() { _currentStatus = InscriptionStatus.idle; }); }
+      scaffoldMessenger.showSnackBar(SnackBar(
+        content: Text(e.toString().replaceFirst('Exception: ', '')),
+        backgroundColor: Colors.red,
+      ));
     }
   }
 

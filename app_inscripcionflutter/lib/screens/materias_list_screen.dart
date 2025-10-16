@@ -14,6 +14,18 @@ class MateriasListScreen extends StatefulWidget {
   State<MateriasListScreen> createState() => _MateriasListScreenState();
 }
 
+
+
+
+/* necesito que me haga una pantalla al inscribir->
+proceso de inscripcion
+
+Iniciado 
+consulta tu inscripcion ->aqui
+me debe mostrar el estado en interfaz procesando... etc */
+
+/**
+errors que se debe visualizar al consultar de inscripcion si es que lo hay 400, 422, 401. */
 class _MateriasListScreenState extends State<MateriasListScreen> {
   late Future<List<Materia>> _materiasFuture;
 

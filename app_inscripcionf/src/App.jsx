@@ -9,6 +9,8 @@ import Header from './components/Header';
 import InscriptionPage from './pages/InscriptionPage';
 import MateriasListPage from './pages/MateriasListPage';
 
+import InscriptionStatusPage from './pages/InscriptionStatusPage';
+
 function App() {
   return (
     <AuthProvider>
@@ -30,6 +32,8 @@ function App() {
           <Route path="/" element={<MateriasListPage />} />
           {/* ✅ La página de inscripción ahora es una ruta de detalle */}
           <Route path="/materia/:materiaId" element={<InscriptionPage />} />
+
+            <Route path="/status/:queueName/:taskId" element={<InscriptionStatusPage />} />
         </Routes>
     </Router>
     </AuthProvider>

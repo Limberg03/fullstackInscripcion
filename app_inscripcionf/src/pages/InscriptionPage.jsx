@@ -91,6 +91,7 @@ if (!currentStudentId || !materiaId) return;
                 studentId={currentStudentId}
                 isEnrolled={grupo.isEnrolled} 
                 pendingTask={grupo.pendingTask}
+                 materiaId={materiaId}
               />
             ))
           ) : (
