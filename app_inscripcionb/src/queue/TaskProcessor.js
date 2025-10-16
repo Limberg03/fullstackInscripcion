@@ -319,18 +319,17 @@ class TaskProcessor {
         throw new Error(`Grupo Materia ${grupoMateriaId} está inactivo`);
       }
 
-      if (grupo.cupo <= 0) {
+    if (grupo.cupo <= 0) {
         await transaction.rollback();
-        throw {
+        // ✅ CAMBIA ESTA LÍNEA
+        // Ahora lanzamos un Error real con un JSON dentro, que es más fácil de manejar.
+        throw new Error(JSON.stringify({
           success: false,
           status: 'rejected',
           reason: 'no_seats_available',
           message: `Sin cupos disponibles en grupo ${grupo.grupo}`,
-          grupoMateriaId,
-          estudianteId,
-          cuposRestantes: 0,
-          retry: false // ✅ NO reintentar
-        };
+          retry: false
+        }));
       }
 
       // 3. Verificar si ya está inscrito

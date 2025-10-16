@@ -73,3 +73,94 @@ body {
   cursor: not-allowed;
   opacity: 0.7;
 }
+
+
+.status-card {
+  text-align: center;
+  padding: 40px 30px;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  background-color: white;
+  width: 100%;
+  max-width: 450px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px; /* Espacio entre elementos */
+}
+
+/* Título principal (ej: "Rechazado") */
+.status-card h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* Subtítulo o mensaje de ayuda */
+.status-card .subtitle {
+  font-size: 16px;
+  color: #6c757d;
+  margin: 0;
+  max-width: 300px;
+}
+
+/* --- Iconos de Estado (Círculos de color) --- */
+.icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 40px;
+  font-weight: bold;
+  color: white;
+}
+
+.icon.success {
+  background-color: #28a745; /* Verde */
+}
+
+.icon.error {
+  background-color: #dc3545; /* Rojo */
+}
+
+.icon.initial {
+  background-color: #e9ecef; /* Gris claro */
+  color: #6c757d;
+}
+
+/* --- Animación del Spinner (Procesando...) --- */
+.spinner {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  border: 8px solid #f3f3f3; /* Gris claro */
+  border-top: 8px solid #f0ad4e; /* Naranja */
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* --- Estilo unificado para los botones y enlaces --- */
+.button {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 12px 24px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background-color: white;
+  color: #495057;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.button:hover {
+  background-color: #f8f9fa;
+  border-color: #adb5bd;
+}

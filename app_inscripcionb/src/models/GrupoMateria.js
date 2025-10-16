@@ -61,14 +61,7 @@ const GrupoMateria = sequelize.define('GrupoMateria', {
   timestamps: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at',
-  // Se agrega un índice único compuesto para asegurar que la combinación
-  // de 'materia_id' y 'grupo' sea única.
-  indexes: [
-    {
-      unique: true,
-      fields: ['materia_id', 'grupo']
-    }
-  ]
+ 
 });
 
 module.exports = GrupoMateria;

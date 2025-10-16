@@ -1,10 +1,12 @@
+import { useNavigate } from 'react-router-dom';
 import React, { useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { requestSeat } from '../api/apiService';
 import { useTaskStatus } from '../hooks/useTaskStatus';
 import './GrupoMateriaCard.css';
 
-const GrupoMateriaCard = ({ grupo, studentId, isEnrolled, pendingTask }) => {
+const GrupoMateriaCard = ({ grupo, studentId, isEnrolled, pendingTask, materiaId  }) => {
+    const navigate = useNavigate();
   const [taskInfo, setTaskInfo] = useState(
     pendingTask ? { queueName: pendingTask.queueName, taskId: pendingTask.taskId } : { queueName: null, taskId: null }
   );
@@ -42,33 +44,39 @@ const GrupoMateriaCard = ({ grupo, studentId, isEnrolled, pendingTask }) => {
   }
 
   const handleInscribir = async () => {
-    setIsSending(true);
-    try {
-      console.log('Enviando para inscripción:', { 
-        estudianteId: studentId, 
-        grupoMateriaId: grupo.id 
+  setIsSending(true); // 1. Activa el estado de carga
+  try {
+    const result = await requestSeat({
+      estudianteId: studentId, 
+      grupoMateriaId: grupo.id,
+      gestion: new Date().getFullYear(),
+    });
+
+    // 2. Guarda la tarea pendiente para la persistencia
+    const pending = JSON.parse(localStorage.getItem('pendingInscriptions') || '{}');
+    pending[grupo.id] = { taskId: result.taskId, queueName: result.queueName };
+    localStorage.setItem('pendingInscriptions', JSON.stringify(pending));
+    
+    // 3. Actualiza el estado local de la tarjeta (útil si el usuario vuelve atrás)
+    setTaskInfo({ queueName: result.queueName, taskId: result.taskId });
+
+    // Muestra una notificación de éxito inicial
+    toast.info('Solicitud en cola...', { autoClose: 2000 });
+
+    navigate(`/status/${result.queueName}/${result.taskId}`, {
+        state: { materiaId: materiaId } 
       });
 
-      const result = await requestSeat({
-        estudianteId: studentId, 
-        grupoMateriaId: grupo.id,
-        gestion: new Date().getFullYear(),
-      });
-
-      const pending = JSON.parse(localStorage.getItem('pendingInscriptions') || '{}');
-      pending[grupo.id] = { taskId: result.taskId, queueName: result.queueName };
-      localStorage.setItem('pendingInscriptions', JSON.stringify(pending));
-      
-      setTaskInfo({ queueName: result.queueName, taskId: result.taskId });
-
-      toast.info('Solicitud en cola...', { autoClose: 3000 });
-
-    } catch (error) {
-      toast.error(error.message || 'Ocurrió un error al inscribirte.', { autoClose: 5000 });
-    } finally {
-      setIsSending(false);
-    }
-  };
+  } catch (error) {
+    // 5. Si algo falla, muestra una notificación de error
+    toast.error(error.message || 'Ocurrió un error al inscribirte.', { autoClose: 5000 });
+  
+  } finally {
+    // ✅ ESTE BLOQUE SE EJECUTA SIEMPRE, tanto en éxito como en error.
+    // Asegura que el estado de carga se desactive, dejando el componente limpio.
+    setIsSending(false); 
+  } 
+};
 
   const renderStatus = () => {
     switch (displayStatus) {
