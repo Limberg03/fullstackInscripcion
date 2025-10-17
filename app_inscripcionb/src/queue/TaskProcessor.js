@@ -1,5 +1,6 @@
 // TaskProcessor.js - VERSIÓN GLOBALIZADA PARA TODOS LOS MODELOS
 const { sequelize } = require('../models');
+const { UnprocessableEntityError, ConflictError, NotFoundError } = require('../errors/ApiError'); // ¡Asegúrate de que la ruta a tu archivo ApiError.js sea correcta!
 
 class TaskProcessor {
   constructor() {
@@ -8,14 +9,13 @@ class TaskProcessor {
 
   async initialize() {
     this.models = sequelize.models;
-    console.log('✅ TaskProcessor inicializado con modelos:', Object.keys(this.models));
   }
 
   async processTask(task) {
     console.log('🔧 Procesando tarea:', task.id);
     console.log('   Modelo:', task.model);
     console.log('   Operación:', task.operation);
-    console.log('   Datos completos:', JSON.stringify(task, null, 2));
+    // console.log('   Datos completos:', JSON.stringify(task, null, 2));
 
     // VALIDACIÓN CRÍTICA: Verificar que la tarea tenga todos los campos necesarios
     if (!task || !task.model || !task.operation) {
@@ -288,11 +288,11 @@ class TaskProcessor {
 
 
     async handleRequestSeat(data) {
-    const { estudianteId, grupoMateriaId, gestion } = data;
-    
-    console.log(`🎓 Procesando solicitud de inscripción:`);
-    console.log(`   Estudiante: ${estudianteId}`);
-    console.log(`   Grupo Materia: ${grupoMateriaId}`);
+    const { estudianteId, grupoMateriaId, gestion, estudianteNombre, materiaNombre, grupoNombre } = data;
+
+    console.log('--- PROCESANDO INSCRIPCIÓN ---');
+    console.log(`[WORKER] Tarea para el estudiante: '${estudianteNombre}' (ID: ${estudianteId})`);
+    console.log(`[WORKER] En la materia: '${materiaNombre}' (Grupo: ${grupoNombre})`);
 
     const GrupoMateria = this.models.GrupoMateria;
     const Inscripcion = this.models.Inscripcion;
@@ -301,59 +301,35 @@ class TaskProcessor {
       throw new Error('Modelos GrupoMateria o Inscripcion no encontrados');
     }
 
-    // Iniciar transacción para garantizar atomicidad
     const transaction = await sequelize.transaction();
 
     try {
-      // 1. Obtener grupo con bloqueo (FOR UPDATE)
       const grupo = await GrupoMateria.findByPk(grupoMateriaId, {
         lock: transaction.LOCK.UPDATE,
         transaction
       });
 
       if (!grupo) {
-        throw new Error(`Grupo Materia ${grupoMateriaId} no encontrado`);
+        throw new UnprocessableEntityError(`El grupo de materia con ID ${grupoMateriaId} no existe.`);
       }
 
       if (!grupo.estado) {
-        throw new Error(`Grupo Materia ${grupoMateriaId} está inactivo`);
+        throw new UnprocessableEntityError(`El grupo ${grupo.grupo} está inactivo.`);
       }
 
-    if (grupo.cupo <= 0) {
-        await transaction.rollback();
-        // ✅ CAMBIA ESTA LÍNEA
-        // Ahora lanzamos un Error real con un JSON dentro, que es más fácil de manejar.
-        throw new Error(JSON.stringify({
-          success: false,
-          status: 'rejected',
-          reason: 'no_seats_available',
-          message: `Sin cupos disponibles en grupo ${grupo.grupo}`,
-          retry: false
-        }));
+      if (grupo.cupo <= 0) {
+        throw new UnprocessableEntityError(`No hay cupos disponibles.`);
       }
 
-      // 3. Verificar si ya está inscrito
       const existingInscription = await Inscripcion.findOne({
-        where: {
-          estudianteId,
-          grupoMateriaId
-        },
+        where: { estudianteId, grupoMateriaId },
         transaction
       });
 
       if (existingInscription) {
-        await transaction.rollback();
-        return {
-          success: false,
-          status: 'rejected',
-          reason: 'already_enrolled',
-          message: `Estudiante ${estudianteId} ya inscrito en este grupo`,
-          grupoMateriaId,
-          estudianteId
-        };
+        throw new ConflictError(`El estudiante ya está inscrito en este grupo.`);
       }
 
-      // 4. Crear inscripción
       const inscripcion = await Inscripcion.create({
         estudianteId,
         grupoMateriaId,
@@ -361,46 +337,32 @@ class TaskProcessor {
         fecha: new Date()
       }, { transaction });
 
-      // 5. Decrementar cupo
-      await grupo.decrement('cupo', { 
-        by: 1, 
-        transaction 
-      });
+      await grupo.decrement('cupo', { by: 1, transaction });
 
       await transaction.commit();
 
       const cuposRestantes = grupo.cupo - 1;
 
-      console.log(`✅ Inscripción confirmada: ID ${inscripcion.id}`);
-      console.log(`   Cupos restantes: ${cuposRestantes}`);
+      console.log('--- INSCRIPCIÓN FINALIZADA (ÉXITO) ---');
+      console.log(`[SUCCESS] Estudiante '${estudianteNombre}' inscrito correctamente.`);
+      console.log(`[SUCCESS] ID de inscripción: ${inscripcion.id}`);
+      console.log(`[SUCCESS] Cupos restantes en el grupo '${grupoNombre}': ${cuposRestantes}`);
 
       return {
         success: true,
         status: 'confirmed',
         inscripcionId: inscripcion.id,
-        estudianteId,
-        grupoMateriaId,
-        grupo: grupo.grupo,
         cuposRestantes,
-        message: 'Seat confirmed successfully'
       };
 
-     } catch (error) {
+    } catch (error) {
       await transaction.rollback();
-      console.error(`❌ Error en inscripción:`, error.message);
-      
-      // ✅ Si es rechazo por cupos, NO es error técnico
-      if (error.reason === 'no_seats_available' || error.reason === 'already_enrolled') {
-        throw error; // Propagar tal cual
-      }
-      
-      throw {
-        success: false,
-        status: 'rejected',
-        reason: 'processing_error',
-        message: error.message,
-        retry: this.shouldRetry(error)
-      };
+
+      console.log('--- INSCRIPCIÓN FINALIZADA (FALLIDA) ---');
+      console.log(`[FAILURE] No se pudo inscribir a '${estudianteNombre}'.`);
+      console.log(`[FAILURE] Razón: ${error.message}`); // El mensaje viene de nuestras excepciones personalizadas
+
+      throw error;
     }
   }
 

@@ -8,10 +8,15 @@ class InscriptionStatusScreen extends StatefulWidget {
   final String taskId;
   final String queueName;
 
+  final String? grupoNombre;
+  final String? materiaNombre;
+
   const InscriptionStatusScreen({
     super.key,
     required this.taskId,
     required this.queueName,
+    this.grupoNombre,
+    this.materiaNombre,
   });
 
   @override
@@ -88,8 +93,10 @@ class _InscriptionStatusScreenState extends State<InscriptionStatusScreen> {
 
   // Función mejorada para extraer el mensaje de error
   String _extractErrorMessage(Map<String, dynamic> task) {
-    String defaultMessage = 'No se pudo completar la inscripción: grupo sin cupos disponibles';
+    // String defaultMessage = 'No se pudo completar la inscripción: grupo sin cupos disponibles';
     
+    String defaultMessage = 'No se pudo completar la inscripción: '
+                            'el grupo "${widget.grupoNombre ?? 'seleccionado'}" no tiene cupos disponibles.';
     // Verificamos si existe el campo 'error'
     if (task['error'] == null) {
       return defaultMessage;

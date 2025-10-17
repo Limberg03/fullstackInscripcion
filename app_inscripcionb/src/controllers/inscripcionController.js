@@ -1,6 +1,12 @@
 const { Inscripcion, Estudiante, GrupoMateria, Materia, Docente, PlanEstudio, Nivel, Prerequisito } = require('../models');
 const { validationResult } = require('express-validator');
 const QueueService = require("../services/QueueService");
+const {
+  ValidationError,
+  ConflictError,
+  UnprocessableEntityError,
+  NotFoundError
+} = require('../errors/ApiError');
 
 let queueServiceInstance = null;
 
@@ -14,74 +20,48 @@ const getQueueService = () => {
 const inscripcionController = {
 
 
-requestSeat: async (req, res) => {
+requestSeat: async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: "Validation errors",
-          errors: errors.array(),
-        });
-      }
-
       const { estudianteId, grupoMateriaId, gestion } = req.body;
 
-      console.log("🎓 Solicitud de inscripción:");
-      console.log("  Estudiante ID:", estudianteId);
-      console.log("  Grupo Materia ID:", grupoMateriaId);
-      console.log("  Gestión:", gestion);
-
-      const grupo = await GrupoMateria.findByPk(grupoMateriaId);
+      // ✅ 1. OBTENER DATOS PARA LOGS MÁS CLAROS
+      // Hacemos esto al principio para tener la información a mano.
+      const [estudiante, grupo] = await Promise.all([
+        Estudiante.findByPk(estudianteId),
+        GrupoMateria.findByPk(grupoMateriaId, {
+          include: [{ model: Materia, as: 'materia' }] // Incluimos la materia
+        })
+      ]);
       
+      // Validaciones tempranas
+      if (!estudiante) {
+        throw new NotFoundError(`El estudiante con ID ${estudianteId} no fue encontrado.`);
+      }
       if (!grupo) {
-        return res.status(404).json({
-          success: false,
-          status: 'rejected',
-          reason: 'group_not_found',
-          message: `Grupo Materia ${grupoMateriaId} no encontrado`
-        });
+        throw new UnprocessableEntityError(`El grupo de materia con ID ${grupoMateriaId} no existe.`);
       }
+      
+      const estudianteNombre = estudiante.nombre;
+      const materiaNombre = grupo.materia.nombre;
+      const grupoNombre = grupo.grupo;
 
-      if (!grupo.estado) {
-        return res.status(400).json({
-          success: false,
-          status: 'rejected',
-          reason: 'group_inactive',
-          message: `Grupo ${grupo.grupo} está inactivo`
-        });
-      }
-
+      // ✅ 2. LOG DE "INSCRIPCIÓN INICIADA"
+      console.log('--- INSCRIPCIÓN INICIADA ---');
+      console.log(`[INFO] Estudiante: ${estudianteNombre} (ID: ${estudianteId})`);
+      console.log(`[INFO] Materia: ${materiaNombre} (Grupo: ${grupoNombre})`);
+      
       // if (grupo.cupo <= 0) {
-      //   return res.status(409).json({
-      //     success: false,
-      //     status: 'rejected',
-      //     reason: 'no_seats_available',
-      //     message: `Sin cupos disponibles en grupo ${grupo.grupo}`,
-      //     //cuposRestantes: 0
-      //   });
+      //   throw new UnprocessableEntityError(`No hay cupos disponibles.`);
       // }
 
-      const existingInscription = await Inscripcion.findOne({
-        where: {
-          estudianteId,
-          grupoMateriaId
-        }
-      });
-
+      const existingInscription = await Inscripcion.findOne({ where: { estudianteId, grupoMateriaId } });
       if (existingInscription) {
-        return res.status(409).json({
-          success: false,
-          status: 'rejected',
-          reason: 'already_enrolled',
-          message: `Estudiante ${estudianteId} ya está inscrito en este grupo`
-        });
+        throw new ConflictError(`El estudiante ya está inscrito en este grupo.`);
       }
-
+      
+      // --- Lógica para encolar ---
       const service = getQueueService();
-
       await service.initialize();
-      const workersActive = await service.areAnyWorkersActive();
       
       const result = await service.enqueueTaskAutoBalance({
         type: 'inscription',
@@ -90,24 +70,27 @@ requestSeat: async (req, res) => {
         data: {
           estudianteId,
           grupoMateriaId,
-          gestion: gestion || new Date().getFullYear()
+          gestion: gestion || new Date().getFullYear(),
+          // ✅ 3. ENVIAMOS LOS NOMBRES AL WORKER
+          // Así el worker no tiene que volver a consultar la base de datos.
+          estudianteNombre,
+          materiaNombre,
+          grupoNombre
         }
       });
 
-      console.log(`✅ Solicitud encolada en: ${result.queueName} (cupos disponibles: ${grupo.cupo})`);
-      console.log(`   Workers activos en el sistema: ${workersActive}`);
-
+      // ✅ 4. LOG DE "INSCRIPCIÓN PENDIENTE"
+      console.log('--- INSCRIPCIÓN PENDIENTE ---');
+      console.log(`[INFO] La solicitud fue encolada en '${result.queueName}'`);
+      console.log(`[INFO] Tarea ID: ${result.taskId}`);
+      
       res.status(202).json({
         ...result,
-        message: 'Seat request queued successfully',       
+        message: 'Solicitud de inscripción encolada exitosamente.',
       });
+
     } catch (error) {
-      console.error("Error in requestSeat:", error);
-      res.status(500).json({
-        success: false,
-        message: "Error requesting seat",
-        error: error.message,
-      });
+      next(error);
     }
   },
 

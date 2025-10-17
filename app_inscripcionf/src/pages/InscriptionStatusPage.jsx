@@ -9,7 +9,8 @@ const InscriptionStatusPage = () => {
   // ✅ Usamos el hook para obtener la información de la navegación
   const location = useLocation();
   // Leemos el materiaId del estado, que pasamos desde la tarjeta
-  const materiaId = location.state?.materiaId;
+  // const materiaId = location.state?.materiaId;
+  const { materiaId, grupo, materiaNombre } = location.state || {};
 
   const [hasStartedChecking, setHasStartedChecking] = useState(false);
   
@@ -35,8 +36,9 @@ const InscriptionStatusPage = () => {
   // ==========================================================
   // FUNCIÓN PARA EXTRAER EL MENSAJE DE ERROR (igual que en Flutter)
   // ==========================================================
-  const extractErrorMessage = () => {
-    const defaultMessage = 'No se pudo completar la inscripción: grupo sin cupos disponibles';
+  const extractErrorMessage = (taskData, grupo) => {
+    // const defaultMessage = 'No se pudo completar la inscripción: grupo sin cupos disponibles';
+    const defaultMessage = `No se pudo completar la inscripción: el grupo "${grupo || 'seleccionado'}" no tiene cupos disponibles.`;
     
     // Determinamos de dónde viene el error
     let errorData;
@@ -109,8 +111,16 @@ const InscriptionStatusPage = () => {
         return (
           <>
             <div className="spinner"></div>
-            <h2 style={{ color: '#f0ad4e' }}>Procesando...</h2>
-            <p className="subtitle">Tu solicitud está en la cola y será procesada en breve.</p>
+            {/* ✅ Mejoramos el mensaje de "Procesando" */}
+            <h2 style={{ color: '#f0ad4e' }}>Procesando Inscripción...</h2>
+            {materiaNombre && grupo && (
+              <p className="subtitle">
+                Solicitud para <strong>{materiaNombre}</strong> (Grupo: {grupo}) en cola.
+              </p>
+            )}
+            {!materiaNombre && (
+              <p className="subtitle">Tu solicitud está en la cola y será procesada en breve.</p>
+            )}
           </>
         );
       case 'completed':
@@ -118,35 +128,25 @@ const InscriptionStatusPage = () => {
           <>
             <div className="icon success">✓</div>
             <h2 style={{ color: '#5cb85c' }}>Inscrito Exitosamente</h2>
-            {/* ✅ Usamos la URL y el texto dinámicos */}
             <Link to={backUrl} className="button">{backButtonTextCompleted}</Link>
           </>
         );
       case 'failed':
       case 'error':
-        // ✅ Construimos el objeto taskData correctamente
-        let taskData;
-        if (hasStartedChecking) {
-          // Si ya empezó el checking, usamos currentError
-          taskData = { error: currentError };
-        } else {
-          // Si no, usamos initialTaskData
-          taskData = initialTaskData || {};
-        }
+        let taskData = hasStartedChecking ? { error: currentError } : (initialTaskData || {});
         
-        const errorMessage = extractErrorMessage(taskData);
+        // ✅ Pasamos el 'grupo' a la función que extrae el mensaje de error
+        const errorMessage = extractErrorMessage(taskData, grupo);
         
         return (
           <>
             <div className="icon error">✗</div>
             <h2 style={{ color: '#d9534f' }}>Rechazado</h2>
             <p className="subtitle">{errorMessage}</p>
-            {/* ✅ Usamos la URL y el texto dinámicos */}
             <Link to={backUrl} className="button">{backButtonTextError}</Link>
           </>
         );
       default:
-        // Esta es la vista inicial
         return (
           <>
             <div className="icon initial">👆</div>

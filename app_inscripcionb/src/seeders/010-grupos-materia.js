@@ -50,7 +50,7 @@ module.exports = {
         materia_id: materias[0].id, // Matemáticas I
         docente_id: docentes[0].id, // Dr. Roberto Carlos Mendoza
         horario_id: Horarios[0].id, 
-        cupo: 2,
+        cupo: 1,
 
         created_at: new Date(),
         updated_at: new Date()
@@ -61,7 +61,7 @@ module.exports = {
         materia_id: materias[0].id, // Matemáticas I
         docente_id: docentes[1].id, // Ing. María Elena Vargas
         horario_id: Horarios[1].id, 
-        cupo: 10,
+        cupo: 1,
 
         created_at: new Date(),
         updated_at: new Date()

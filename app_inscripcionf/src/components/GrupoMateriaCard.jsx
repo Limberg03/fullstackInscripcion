@@ -44,39 +44,38 @@ const GrupoMateriaCard = ({ grupo, studentId, isEnrolled, pendingTask, materiaId
   }
 
   const handleInscribir = async () => {
-  setIsSending(true); // 1. Activa el estado de carga
-  try {
-    const result = await requestSeat({
-      estudianteId: studentId, 
-      grupoMateriaId: grupo.id,
-      gestion: new Date().getFullYear(),
-    });
-
-    // 2. Guarda la tarea pendiente para la persistencia
-    const pending = JSON.parse(localStorage.getItem('pendingInscriptions') || '{}');
-    pending[grupo.id] = { taskId: result.taskId, queueName: result.queueName };
-    localStorage.setItem('pendingInscriptions', JSON.stringify(pending));
-    
-    // 3. Actualiza el estado local de la tarjeta (útil si el usuario vuelve atrás)
-    setTaskInfo({ queueName: result.queueName, taskId: result.taskId });
-
-    // Muestra una notificación de éxito inicial
-    toast.info('Solicitud en cola...', { autoClose: 2000 });
-
-    navigate(`/status/${result.queueName}/${result.taskId}`, {
-        state: { materiaId: materiaId } 
+    setIsSending(true);
+    try {
+      const result = await requestSeat({
+        estudianteId: studentId, 
+        grupoMateriaId: grupo.id,
+        gestion: new Date().getFullYear(),
       });
 
-  } catch (error) {
-    // 5. Si algo falla, muestra una notificación de error
-    toast.error(error.message || 'Ocurrió un error al inscribirte.', { autoClose: 5000 });
-  
-  } finally {
-    // ✅ ESTE BLOQUE SE EJECUTA SIEMPRE, tanto en éxito como en error.
-    // Asegura que el estado de carga se desactive, dejando el componente limpio.
-    setIsSending(false); 
-  } 
-};
+      const pending = JSON.parse(localStorage.getItem('pendingInscriptions') || '{}');
+      pending[grupo.id] = { taskId: result.taskId, queueName: result.queueName };
+      localStorage.setItem('pendingInscriptions', JSON.stringify(pending));
+      
+      setTaskInfo({ queueName: result.queueName, taskId: result.taskId });
+
+      toast.info('Solicitud en cola...', { autoClose: 2000 });
+
+      // ✅ --- AQUÍ ESTÁ LA CORRECCIÓN ---
+      // Usamos la variable 'grupo' que sí existe.
+      navigate(`/status/${result.queueName}/${result.taskId}`, {
+        state: {
+          materiaId: materiaId,          // Este ya estaba bien
+          grupo: grupo.grupo,            // Corregido: para obtener 'SB', 'SC', etc.
+          materiaNombre: grupo.materia.nombre // Corregido: para obtener el nombre de la materia
+        }
+      });
+
+    } catch (error) {
+      toast.error(error.message || 'Ocurrió un error al inscribirte.', { autoClose: 5000 });
+    } finally {
+      setIsSending(false); 
+    } 
+  };
 
   const renderStatus = () => {
     switch (displayStatus) {

@@ -5,8 +5,8 @@ import 'models/grupo_materia.dart';
 
 class ApiService {
   // static const String _baseUrl = 'http://10.0.2.2:3000';
-   //static const String _baseUrl = 'http://192.168.1.9:3000';
-   static const String _baseUrl = 'http://localhost:3000';
+   static const String _baseUrl = 'http://192.168.1.9:3000';
+  // static const String _baseUrl = 'http://localhost:3000';
 
   static Future<List<Materia>> getMaterias() async {
     final url = Uri.parse('$_baseUrl/materias'); 

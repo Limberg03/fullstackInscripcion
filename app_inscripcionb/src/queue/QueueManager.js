@@ -359,13 +359,11 @@ async dequeue(batchSize = 1) {
   }
 
  async destroy() {
-  console.log(`\n🗑️ ========== DESTROYING QUEUE '${this.name}' ==========`);
   
   try {
     // Listar TODAS las claves antes de eliminar
     const keysBeforePattern = `queue:${this.name}:*`;
     const keysBefore = await this.redis.keys(keysBeforePattern);
-    console.log(`📋 Keys encontradas ANTES de eliminar (${keysBefore.length}):`, keysBefore);
     
     // Método 1: Eliminar usando las claves definidas
     const definedKeys = [
@@ -377,7 +375,6 @@ async dequeue(batchSize = 1) {
       this.keys.stats
     ];
     
-    console.log(`📝 Keys definidas a eliminar (${definedKeys.length}):`, definedKeys);
     
     // Eliminar una por una para ver cuál falla
     for (const key of definedKeys) {
@@ -385,9 +382,7 @@ async dequeue(batchSize = 1) {
         const exists = await this.redis.exists(key);
         if (exists) {
           const deleted = await this.redis.del(key);
-          console.log(`   ${deleted ? '✅' : '❌'} Eliminando: ${key} (existed: ${exists})`);
         } else {
-          console.log(`   ⏭️  Key no existe: ${key}`);
         }
       } catch (keyError) {
         console.error(`   ❌ ERROR eliminando ${key}:`, keyError.message);
@@ -398,12 +393,9 @@ async dequeue(batchSize = 1) {
     const keysAfterDefined = await this.redis.keys(keysBeforePattern);
     
     if (keysAfterDefined.length > 0) {
-      console.log(`⚠️  Quedan ${keysAfterDefined.length} keys después de eliminar las definidas:`, keysAfterDefined);
-      console.log(`🔧 Eliminando keys restantes...`);
       
       if (keysAfterDefined.length > 0) {
         const result = await this.redis.del(...keysAfterDefined);
-        console.log(`   Eliminadas ${result} keys adicionales`);
       }
     }
     
@@ -433,7 +425,6 @@ async dequeue(batchSize = 1) {
         if (keys.length > 0) {
           const deleted = await this.redis.del(...keys);
           deletedByScan += deleted;
-          console.log(`   Eliminadas ${deleted} keys por SCAN`);
         }
       } while (cursor !== '0');
       
@@ -783,11 +774,9 @@ class QueueManager extends EventEmitter {
     const workersConfig = await this.redis.hgetall(this.workersConfigKey);
     
     if (!workersConfig || Object.keys(workersConfig).length === 0) {
-      console.log('📭 No persisted workers found');
       return;
     }
 
-    console.log(`📦 Loading ${Object.keys(workersConfig).length} persisted workers...`);
 
     for (const [workerId, configStr] of Object.entries(workersConfig)) {
       try {
@@ -796,7 +785,6 @@ class QueueManager extends EventEmitter {
         // Verificar que la cola existe
         const queue = await this.getQueue(config.queueName);
         if (!queue) {
-          console.log(`⚠️ Queue '${config.queueName}' not found for worker '${workerId}', deleting config...`);
           await this.deleteWorkerConfig(workerId);
           continue;
         }
@@ -818,7 +806,6 @@ class QueueManager extends EventEmitter {
           // Si estaba pausado, aplicar pausa DESPUÉS de iniciar
           if (config.isPaused === true) {
             worker.pause();
-            console.log(`✅ Worker '${workerId}' restored → RUNNING + PAUSED`);
           } else {
             console.log(`✅ Worker '${workerId}' restored → RUNNING`);
           }
@@ -832,7 +819,6 @@ class QueueManager extends EventEmitter {
       }
     }
     
-    console.log(`✅ ${this.workers.size} workers cargados desde Redis`);
   } catch (error) {
     console.error('❌ Error loading persisted workers:', error);
   }
@@ -867,11 +853,9 @@ class QueueManager extends EventEmitter {
       return match ? match[1] : null;
     }).filter(Boolean);
     
-    console.log(`📦 Found ${queueNames.length} persisted queues: ${queueNames.join(', ')}`);
 
     for (const queueName of queueNames) {
       if (this.queues.has(queueName)) {
-        console.log(`   ℹ️  Cola '${queueName}' ya existe en memoria`);
         continue;
       }
       
@@ -879,11 +863,9 @@ class QueueManager extends EventEmitter {
       const statsExist = await this.redis.exists(`queue:${queueName}:stats`);
       
       if (!statsExist) {
-        console.log(`⚠️  Cola '${queueName}' sin stats en Redis, limpiando...`);
         const orphanKeys = await this.redis.keys(`queue:${queueName}:*`);
         if (orphanKeys.length > 0) {
           await this.redis.del(...orphanKeys);
-          console.log(`   🗑️  Eliminadas ${orphanKeys.length} keys huérfanas`);
         }
         continue;
       }
@@ -898,10 +880,8 @@ class QueueManager extends EventEmitter {
       await queue.initialize();
       this.queues.set(queueName, queue);
       
-      console.log(`✅ Cola '${queueName}' cargada desde Redis`);
     }
     
-    console.log(`✅ Total de colas cargadas: ${this.queues.size}`);
   } catch (error) {
     console.error("❌ Error loading persisted queues:", error);
     throw error;
@@ -914,7 +894,6 @@ class QueueManager extends EventEmitter {
     }
 
     if (this.queues.has(queueName)) {
-      console.log(`📋 Queue '${queueName}' already exists`);
       return this.queues.get(queueName);
     }
 
@@ -928,7 +907,6 @@ class QueueManager extends EventEmitter {
     await queue.initialize();
     this.queues.set(queueName, queue); 
 
-    console.log(`✅ Queue '${queueName}' created`);
     return queue;
   }
 
@@ -937,7 +915,6 @@ class QueueManager extends EventEmitter {
   }
 
  async deleteQueue(queueName) {
-  console.log(`🗑️ Iniciando eliminación de cola '${queueName}'...`);
   
   const queue = this.queues.get(queueName);
   
@@ -949,7 +926,6 @@ class QueueManager extends EventEmitter {
     }
   }
  
-  console.log(`   Encontrados ${workersToDelete.length} workers para eliminar`);
   
   for (const workerId of workersToDelete) {
     const worker = this.workers.get(workerId);
@@ -958,19 +934,16 @@ class QueueManager extends EventEmitter {
     }
     this.workers.delete(workerId);
     await this.deleteWorkerConfig(workerId);
-    console.log(`   🗑️ Worker '${workerId}' eliminado`);
   }
   
   // SEGUNDO: Destruir la cola (esto limpia Redis)
   if (queue) {
     await queue.destroy();
   } else {
-    console.log(`⚠️ Cola '${queueName}' no encontrada en memoria, limpiando Redis directamente...`);
     // Limpiar Redis aunque no exista en memoria
     const keysToDelete = await this.redis.keys(`queue:${queueName}:*`);
     if (keysToDelete.length > 0) {
       await this.redis.del(...keysToDelete);
-      console.log(`   Eliminadas ${keysToDelete.length} keys huérfanas de Redis`);
     }
   }
   
@@ -981,10 +954,6 @@ class QueueManager extends EventEmitter {
   const remainingKeys = await this.redis.keys(`queue:${queueName}:*`);
   const remainingWorkers = workersToDelete.filter(wId => this.workers.has(wId));
   
-  console.log(`✅ Cola '${queueName}' eliminada:`);
-  console.log(`   - Workers eliminados: ${workersToDelete.length}`);
-  console.log(`   - Keys restantes en Redis: ${remainingKeys.length}`);
-  console.log(`   - Workers restantes en memoria: ${remainingWorkers.length}`);
   
   if (remainingKeys.length > 0) {
     console.error(`❌ ERROR: Aún hay ${remainingKeys.length} keys en Redis:`, remainingKeys);
@@ -1038,7 +1007,6 @@ async createWorker(queueName, threadCount = 1, options = {}) {
       // ✅ NUEVO: Eliminar configuración de Redis
       await this.deleteWorkerConfig(workerId);
       
-      console.log(`✅ Worker '${workerId}' stopped and removed from persistence`);
     }
   }
 
@@ -1089,7 +1057,6 @@ async createWorker(queueName, threadCount = 1, options = {}) {
     await this.redis.quit();
 
     this.queues.clear();
-    console.log('✅ Shutdown complete - worker configs preserved');
   }
 }
 

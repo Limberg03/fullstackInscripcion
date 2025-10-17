@@ -53,41 +53,41 @@ class InscriptionProvider with ChangeNotifier {
     notifyListeners();
   }
   
-  // Lógica para solicitar la inscripción y actualizar el estado
-  Future<String?> requestSeatAndUpdateState(int studentId, int grupoMateriaId) async {
-      final grupo = _grupos.firstWhere((g) => g.id == grupoMateriaId);
-      grupo.status = InscriptionStatus.loading;
-      notifyListeners();
+void updateStateAfterRequest(int grupoMateriaId, Map<String, dynamic> result) async {
+  final grupo = _grupos.firstWhere((g) => g.id == grupoMateriaId);
+  
+  print('[Provider] Actualizando estado a PENDIENTE.');
+  
+  final prefs = await SharedPreferences.getInstance();
+  final pendingTasksJson = prefs.getString('pendingInscriptions') ?? '{}';
+  final Map<String, dynamic> pendingTasks = json.decode(pendingTasksJson);
+  
+  pendingTasks[grupoMateriaId.toString()] = {
+    'taskId': result['taskId'],
+    'queueName': result['queueName'],
+  };
+  
+  await prefs.setString('pendingInscriptions', json.encode(pendingTasks));
+  
+  grupo.pendingTaskInfo = pendingTasks[grupoMateriaId.toString()];
+  grupo.status = InscriptionStatus.pending;
+  notifyListeners();
+}
 
-      try {
-      print('[Provider] Entrando al bloque TRY...');
-      final result = await ApiService.requestSeat(studentId, grupoMateriaId);
+void updateStateToRejected(int grupoMateriaId) {
+  final grupo = _grupos.firstWhere((g) => g.id == grupoMateriaId);
+  
+  print('[Provider] Actualizando estado a RECHAZADO.');
+  
+  grupo.status = InscriptionStatus.rejected;
+  notifyListeners();
+}
 
-      print('[Provider] La API tuvo ÉXITO. El estado será PENDIENTE.');
-      
-      final prefs = await SharedPreferences.getInstance();
-      final pendingTasksJson = prefs.getString('pendingInscriptions') ?? '{}';
-      final Map<String, dynamic> pendingTasks = json.decode(pendingTasksJson);
-      pendingTasks[grupoMateriaId.toString()] = {
-        'taskId': result['taskId'],
-        'queueName': result['queueName'],
-      };
-      await prefs.setString('pendingInscriptions', json.encode(pendingTasks));
-      
-      grupo.pendingTaskInfo = pendingTasks[grupoMateriaId.toString()];
-      grupo.status = InscriptionStatus.pending;
-      notifyListeners();
-      return null;
-
-    } catch (e) {
-      print('[Provider] La API FALLÓ. El estado será RECHAZADO.');
-      print('[Provider] Error atrapado: ${e.toString()}');
-
-      grupo.status = InscriptionStatus.rejected;
-      notifyListeners();
-      return e.toString().replaceFirst('Exception: ', '');
-    }
-  }
+void updateStateToLoading(int grupoMateriaId) {
+  final grupo = _grupos.firstWhere((g) => g.id == grupoMateriaId);
+  grupo.status = InscriptionStatus.loading;
+  notifyListeners();
+}
 
   // Método para actualizar el estado final de una tarjeta (lo llamará el widget)
   void setFinalState(int grupoMateriaId, InscriptionStatus finalStatus) {

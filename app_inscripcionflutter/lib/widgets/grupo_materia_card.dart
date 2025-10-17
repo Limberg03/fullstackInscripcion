@@ -91,47 +91,59 @@ class _GrupoMateriaCardState extends State<GrupoMateriaCard> {
     });
   }
 
- Future<void> _handleInscription() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-    final inscriptionProvider = Provider.of<InscriptionProvider>(context, listen: false);
+Future<void> _handleInscription() async {
+  final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  final scaffoldMessenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
+  final inscriptionProvider = Provider.of<InscriptionProvider>(context, listen: false);
 
-    setState(() { _currentStatus = InscriptionStatus.loading; });
+  // ✅ Cambia el estado a loading a través del provider
+  inscriptionProvider.updateStateToLoading(widget.grupo.id);
+  setState(() { _currentStatus = InscriptionStatus.loading; });
 
-    try {
-      final result = await ApiService.requestSeat(
-        authProvider.currentStudentId!,
-        widget.grupo.id,
-      );
-      
-      inscriptionProvider.requestSeatAndUpdateState(
-        authProvider.currentStudentId!, 
-        widget.grupo.id
-      );
+  try {
+    // ✅ UNA SOLA LLAMADA a la API
+    final result = await ApiService.requestSeat(
+      authProvider.currentStudentId!,
+      widget.grupo.id,
+    );
+    
+    // ✅ Actualiza el estado a PENDING con el resultado
+    inscriptionProvider.updateStateAfterRequest(widget.grupo.id, result);
 
-      await navigator.push(
-        MaterialPageRoute(
-          builder: (context) => InscriptionStatusScreen(
-            taskId: result['taskId'],
-            queueName: result['queueName'],
-          ),
+    // Navega a la pantalla de estado
+    await navigator.push(
+      MaterialPageRoute(
+        builder: (context) => InscriptionStatusScreen(
+          taskId: result['taskId'],
+          queueName: result['queueName'],
+          grupoNombre: widget.grupo.grupo,
+          materiaNombre: widget.grupo.materia.nombre,
         ),
-      );
-      
-      if(mounted){
-         setState(() {
-           _currentStatus = inscriptionProvider.grupos.firstWhere((g) => g.id == widget.grupo.id).status;
-         });
-      }
-    } catch (e) {
-      if (mounted) { setState(() { _currentStatus = InscriptionStatus.idle; }); }
-      scaffoldMessenger.showSnackBar(SnackBar(
-        content: Text(e.toString().replaceFirst('Exception: ', '')),
-        backgroundColor: Colors.red,
-      ));
+      ),
+    );
+    
+    if(mounted){
+      setState(() {
+        _currentStatus = inscriptionProvider.grupos
+          .firstWhere((g) => g.id == widget.grupo.id).status;
+      });
     }
+    
+  } catch (e) {
+    // ✅ Actualiza el estado a REJECTED en caso de error
+    inscriptionProvider.updateStateToRejected(widget.grupo.id);
+    
+    if (mounted) { 
+      setState(() { _currentStatus = InscriptionStatus.rejected; }); 
+    }
+    
+    scaffoldMessenger.showSnackBar(SnackBar(
+      content: Text(e.toString().replaceFirst('Exception: ', '')),
+      backgroundColor: Colors.red,
+    ));
   }
+}
 
   @override
   Widget build(BuildContext context) {

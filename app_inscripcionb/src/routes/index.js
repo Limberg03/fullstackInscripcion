@@ -23,6 +23,8 @@ const notaRoutes = require('./notaRoutes');
 const prerequisitoRoutes = require('./prerequisitoRoutes');
 const planEstudioRoutes = require('./planEstudioRoutes');
 
+const errorHandler1 = require('../middleware/errorHandler1');
+
 const trackingRoutes = require('./trackingRoutes');
 
 router.get('/health', (req, res) => {
@@ -93,6 +95,6 @@ router.use('/planes-estudio', planEstudioRoutes);
 router.use('/', trackingRoutes);
 
 
-
+router.use(errorHandler1);
 
 module.exports = router;
