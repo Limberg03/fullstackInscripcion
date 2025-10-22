@@ -62,13 +62,34 @@ class _InscriptionStatusScreenState extends State<InscriptionStatusScreen> {
 
   void _startPolling() {
     _pollingTimer?.cancel();
+    
+    int pollingCount = 0;
+    const int maxPolling = 20; // Límite: 20 intentos * 3 segundos = 60 segundos de timeout
+
     _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      
+      if (pollingCount >= maxPolling) {
+        timer.cancel(); // Detener el polling
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _taskData = {
+              'status': 'error', 
+              'error': 'La operación está tardando más de lo esperado. Por favor, intenta de nuevo más tarde.'
+            };
+          });
+        }
+        return; 
+      }
+      
+      pollingCount++; 
+
       try {
         final task = await ApiService.getTaskStatus(widget.queueName, widget.taskId);
         _updateTaskData(task);
 
         if (task['status'] == 'completed' || task['status'] == 'failed' || task['status'] == 'error') {
-          timer.cancel();
+          timer.cancel(); // Detener el polling si se obtiene un estado final
         }
       } catch (e) {
         timer.cancel();
@@ -91,9 +112,7 @@ class _InscriptionStatusScreenState extends State<InscriptionStatusScreen> {
     }
   }
 
-  // Función mejorada para extraer el mensaje de error
   String _extractErrorMessage(Map<String, dynamic> task) {
-    // String defaultMessage = 'No se pudo completar la inscripción: grupo sin cupos disponibles';
     
     String defaultMessage = 'No se pudo completar la inscripción: '
                             'el grupo "${widget.grupoNombre ?? 'seleccionado'}" no tiene cupos disponibles.';

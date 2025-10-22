@@ -24,17 +24,15 @@ requestSeat: async (req, res, next) => {
     try {
       const { estudianteId, grupoMateriaId, gestion } = req.body;
 
-      // ✅ 1. OBTENER DATOS PARA LOGS MÁS CLAROS
-      // Hacemos esto al principio para tener la información a mano.
       const [estudiante, grupo] = await Promise.all([
         Estudiante.findByPk(estudianteId),
         GrupoMateria.findByPk(grupoMateriaId, {
-          include: [{ model: Materia, as: 'materia' }] // Incluimos la materia
+          include: [{ model: Materia, as: 'materia' }] 
         })
       ]);
       
       // Validaciones tempranas
-      if (!estudiante) {
+      if (!estudiante) {  //lanza el error..
         throw new NotFoundError(`El estudiante con ID ${estudianteId} no fue encontrado.`);
       }
       if (!grupo) {
@@ -50,12 +48,14 @@ requestSeat: async (req, res, next) => {
       console.log(`[INFO] Estudiante: ${estudianteNombre} (ID: ${estudianteId})`);
       console.log(`[INFO] Materia: ${materiaNombre} (Grupo: ${grupoNombre})`);
       
-      // if (grupo.cupo <= 0) {
-      //   throw new UnprocessableEntityError(`No hay cupos disponibles.`);
-      // }
+      if (grupo.cupo <= 0) {
+        throw new UnprocessableEntityError(`No hay cupos disponibles.`);
+      }
 
       const existingInscription = await Inscripcion.findOne({ where: { estudianteId, grupoMateriaId } });
       if (existingInscription) {
+    
+        debugger;
         throw new ConflictError(`El estudiante ya está inscrito en este grupo.`);
       }
       

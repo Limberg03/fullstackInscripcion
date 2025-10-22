@@ -1,20 +1,15 @@
 import React, { useState } from 'react';
-// ✅ Importar 'useLocation' para leer el estado de la navegación
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { useTaskStatus } from '../hooks/useTaskStatus';
 import { getTaskStatus } from '../api/apiService';
 
 const InscriptionStatusPage = () => {
   const { queueName, taskId } = useParams();
-  // ✅ Usamos el hook para obtener la información de la navegación
   const location = useLocation();
-  // Leemos el materiaId del estado, que pasamos desde la tarjeta
-  // const materiaId = location.state?.materiaId;
   const { materiaId, grupo, materiaNombre } = location.state || {};
 
   const [hasStartedChecking, setHasStartedChecking] = useState(false);
   
-  // La lógica del hook de sondeo y la consulta inicial
   const { status, error: currentError } = useTaskStatus(
     hasStartedChecking ? queueName : null,
     hasStartedChecking ? taskId : null
@@ -34,74 +29,125 @@ const InscriptionStatusPage = () => {
   };
 
   // ==========================================================
-  // FUNCIÓN PARA EXTRAER EL MENSAJE DE ERROR (igual que en Flutter)
+  // ✅ FUNCIÓN PARA EXTRAER MENSAJE DE ERROR (CON DEBUG)
   // ==========================================================
   const extractErrorMessage = (taskData, grupo) => {
-    // const defaultMessage = 'No se pudo completar la inscripción: grupo sin cupos disponibles';
     const defaultMessage = `No se pudo completar la inscripción: el grupo "${grupo || 'seleccionado'}" no tiene cupos disponibles.`;
     
     // Determinamos de dónde viene el error
     let errorData;
     if (hasStartedChecking && currentError) {
       errorData = currentError;
+      console.log('🔍 [DEBUG] errorData viene de currentError:', errorData);
+      console.log('🔍 [DEBUG] tipo:', typeof errorData);
     } else if (initialTaskData?.error) {
       errorData = initialTaskData.error;
+      console.log('🔍 [DEBUG] errorData viene de initialTaskData.error:', errorData);
+      console.log('🔍 [DEBUG] tipo:', typeof errorData);
     } else {
+      console.log('🔍 [DEBUG] No hay errorData, retornando defaultMessage');
       return defaultMessage;
     }
     
-    // Caso 1: Si 'error' es un String
+    const isScheduleConflictText = (text) => {
+      if (!text || typeof text !== 'string') return false;
+      const lower = text.toLowerCase();
+      const hasConflict = lower.includes('choque') && 
+                         (lower.includes('horario') || lower.includes('inscrito') || lower.includes('detectado'));
+      console.log(`🔍 [DEBUG] isScheduleConflictText("${text}"): ${hasConflict}`);
+      return hasConflict;
+    };
+    
     if (typeof errorData === 'string') {
-      if (errorData.trim() === '') return defaultMessage;
+      console.log('🔍 [DEBUG] errorData es string:', errorData);
       
-      // Si el error es el mensaje genérico del backend, mostramos nuestro mensaje personalizado
-      if (errorData === 'La inscripción fue rechazada.') {
+      if (errorData.trim() === '') {
+        console.log('🔍 [DEBUG] errorData vacío, retornando defaultMessage');
         return defaultMessage;
       }
       
-      // Intentamos decodificar como JSON
+      if (isScheduleConflictText(errorData)) {
+        console.log('🔍 [DEBUG] ¡Choque detectado en string! Retornando:', errorData);
+        return errorData;
+      }
+      
+      // Si el error es el mensaje genérico del backend
+      if (errorData === 'La inscripción fue rechazada.') {
+        console.log('🔍 [DEBUG] Mensaje genérico detectado, retornando defaultMessage');
+        return defaultMessage;
+      }
+      
+      // Intentar decodificar como JSON
       try {
         const errorJson = JSON.parse(errorData);
+        console.log('🔍 [DEBUG] errorData parseado como JSON:', errorJson);
         
-        // Si tiene el campo 'message', lo usamos
         if (errorJson && errorJson.message) {
+          console.log('🔍 [DEBUG] errorJson.message:', errorJson.message);
+          if (isScheduleConflictText(errorJson.message)) {
+            console.log('🔍 [DEBUG] ¡Choque detectado en JSON.message!');
+            return errorJson.message;
+          }
           return errorJson.message;
         }
         
-        // Si es un objeto con otros campos, intentamos mostrar algo útil
         if (errorJson && typeof errorJson === 'object' && Object.keys(errorJson).length > 0) {
-          return Object.values(errorJson)[0];
+          const firstValue = Object.values(errorJson)[0];
+          console.log('🔍 [DEBUG] Primer valor del JSON:', firstValue);
+          if (typeof firstValue === 'string' && isScheduleConflictText(firstValue)) {
+            console.log('🔍 [DEBUG] ¡Choque detectado en primer valor JSON!');
+            return firstValue;
+          }
+          return firstValue;
         }
         
-        return errorData; // Si no pudimos extraer nada mejor, retornamos el string original
+        console.log('🔍 [DEBUG] JSON sin estructura reconocida, retornando string original');
+        return errorData;
       } catch (e) {
-        // No es JSON, retornamos el string directamente
+        console.log('🔍 [DEBUG] No es JSON válido, retornando string original');
         return errorData;
       }
     }
     
     // Caso 2: Si 'error' ya es un Object
-    if (typeof errorData === 'object') {
+    if (typeof errorData === 'object' && errorData !== null) {
+      console.log('🔍 [DEBUG] errorData es objeto:', errorData);
+      
       if (errorData.message) {
+        console.log('🔍 [DEBUG] errorData.message:', errorData.message);
+        if (isScheduleConflictText(errorData.message)) {
+          console.log('🔍 [DEBUG] ¡Choque detectado en object.message!');
+          return errorData.message;
+        }
         return errorData.message;
       }
-      if (Object.keys(errorData).length > 0) {
-        return Object.values(errorData)[0];
+      
+      // Buscar en todas las propiedades
+      const values = Object.values(errorData);
+      console.log('🔍 [DEBUG] Valores del objeto:', values);
+      for (const value of values) {
+        if (typeof value === 'string' && isScheduleConflictText(value)) {
+          console.log('🔍 [DEBUG] ¡Choque detectado en valores del objeto!');
+          return value;
+        }
+      }
+      
+      if (values.length > 0) {
+        console.log('🔍 [DEBUG] Retornando primer valor:', values[0]);
+        return values[0];
       }
     }
     
+    console.log('🔍 [DEBUG] Ningún caso coincidió, retornando defaultMessage');
     return defaultMessage;
   };
 
   // ==========================================================
-  // AQUÍ ESTÁ LA FUNCIÓN COMPLETA QUE SOLICITASTE
+  // RENDERIZADO DEL CONTENIDO SEGÚN EL ESTADO
   // ==========================================================
   const renderStatusContent = () => {
-    // Determinamos el estado y error actual a mostrar
     const currentStatus = hasStartedChecking ? status : initialTaskData?.status;
     
-    // ✅ Construimos la URL de "Volver" dinámicamente
-    // Si tenemos un materiaId, volvemos a la lista de grupos. Si no, a la lista de materias.
     const backUrl = materiaId ? `/materia/${materiaId}` : '/';
     const backButtonTextCompleted = materiaId ? 'Volver a los Grupos' : 'Volver a las Materias';
     const backButtonTextError = materiaId ? 'Volver e Intentar de Nuevo' : 'Volver';
@@ -111,7 +157,6 @@ const InscriptionStatusPage = () => {
         return (
           <>
             <div className="spinner"></div>
-            {/* ✅ Mejoramos el mensaje de "Procesando" */}
             <h2 style={{ color: '#f0ad4e' }}>Procesando Inscripción...</h2>
             {materiaNombre && grupo && (
               <p className="subtitle">
@@ -123,29 +168,57 @@ const InscriptionStatusPage = () => {
             )}
           </>
         );
+      
       case 'completed':
         return (
           <>
             <div className="icon success">✓</div>
             <h2 style={{ color: '#5cb85c' }}>Inscrito Exitosamente</h2>
+            {materiaNombre && grupo && (
+              <p className="subtitle">
+                Te has inscrito correctamente en <strong>{materiaNombre}</strong> (Grupo: {grupo})
+              </p>
+            )}
             <Link to={backUrl} className="button">{backButtonTextCompleted}</Link>
           </>
         );
+      
       case 'failed':
       case 'error':
         let taskData = hasStartedChecking ? { error: currentError } : (initialTaskData || {});
-        
-        // ✅ Pasamos el 'grupo' a la función que extrae el mensaje de error
         const errorMessage = extractErrorMessage(taskData, grupo);
+        
+        console.log('🔍 [DEBUG] errorMessage FINAL:', errorMessage);
+        
+        // ✅ DETECTAR SI ES UN ERROR DE CHOQUE DE HORARIO
+        const isScheduleConflict = errorMessage && (
+          errorMessage.toLowerCase().includes('choque') ||
+          (errorMessage.toLowerCase().includes('horario') && errorMessage.toLowerCase().includes('inscrito'))
+        );
+        
+        console.log('🔍 [DEBUG] isScheduleConflict:', isScheduleConflict);
         
         return (
           <>
-            <div className="icon error">✗</div>
-            <h2 style={{ color: '#d9534f' }}>Rechazado</h2>
-            <p className="subtitle">{errorMessage}</p>
+            <div className="icon error" style={{ 
+              backgroundColor: isScheduleConflict ? '#ff9800' : '#d9534f' 
+            }}>
+              {isScheduleConflict ? '⚠' : '✗'}
+            </div>
+            <h2 style={{ color: isScheduleConflict ? '#ff9800' : '#d9534f' }}>
+              {isScheduleConflict ? 'Choque de Horario' : 'Inscripción Rechazada'}
+            </h2>
+            <p className="subtitle" style={{ 
+              color: isScheduleConflict ? '#e65100' : '#d9534f',
+              fontWeight: '500',
+              fontSize: '1.05em'
+            }}>
+              {errorMessage}
+            </p>
             <Link to={backUrl} className="button">{backButtonTextError}</Link>
           </>
         );
+      
       default:
         return (
           <>
@@ -169,6 +242,12 @@ const InscriptionStatusPage = () => {
   );
 };
 
-const pageStyle = { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh', fontFamily: 'sans-serif' };
+const pageStyle = { 
+  display: 'flex', 
+  justifyContent: 'center', 
+  alignItems: 'center', 
+  minHeight: '80vh', 
+  fontFamily: 'sans-serif' 
+};
 
 export default InscriptionStatusPage;

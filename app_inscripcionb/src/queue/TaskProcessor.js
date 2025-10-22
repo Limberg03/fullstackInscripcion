@@ -15,9 +15,7 @@ class TaskProcessor {
     console.log('🔧 Procesando tarea:', task.id);
     console.log('   Modelo:', task.model);
     console.log('   Operación:', task.operation);
-    // console.log('   Datos completos:', JSON.stringify(task, null, 2));
 
-    // VALIDACIÓN CRÍTICA: Verificar que la tarea tenga todos los campos necesarios
     if (!task || !task.model || !task.operation) {
       console.error('❌ Tarea incompleta recibida:', task);
       throw new Error(`Tarea incompleta: model=${task?.model}, operation=${task?.operation}`);
@@ -25,8 +23,29 @@ class TaskProcessor {
 
     const { model, operation, data, id } = task;
 
- if (operation.toLowerCase() === 'requestseat') {
-      return await this.handleRequestSeat(data);
+    if (operation.toLowerCase() === 'requestseat') {
+      try {
+        return await this.handleRequestSeat(data);
+      } catch (error) {
+        // ✅ IDENTIFICAR ERRORES QUE NO DEBEN REINTENTAR
+        const noRetryErrors = [
+          'choque de horario',
+          'no tiene cupos disponibles',
+          'ya está inscrito',
+          'grupo está inactivo'
+        ];
+        
+        const shouldNotRetry = noRetryErrors.some(pattern => 
+          error.message.toLowerCase().includes(pattern)
+        );
+        
+        console.error(`❌ Error procesando tarea ${task.id}:`, error);
+        
+        throw {
+          message: error.message,
+          retry: !shouldNotRetry  // ✅ false si no debe reintentar
+        };
+      }
     }
 
     // BÚSQUEDA DINÁMICA DEL MODELO
@@ -287,7 +306,7 @@ class TaskProcessor {
   }
 
 
-    async handleRequestSeat(data) {
+   async handleRequestSeat(data) {
     const { estudianteId, grupoMateriaId, gestion, estudianteNombre, materiaNombre, grupoNombre } = data;
 
     console.log('--- PROCESANDO INSCRIPCIÓN ---');
@@ -296,76 +315,139 @@ class TaskProcessor {
 
     const GrupoMateria = this.models.GrupoMateria;
     const Inscripcion = this.models.Inscripcion;
+    const Horario = this.models.Horario;
+    const Materia = this.models.Materia;
 
-    if (!GrupoMateria || !Inscripcion) {
-      throw new Error('Modelos GrupoMateria o Inscripcion no encontrados');
+    if (!GrupoMateria || !Inscripcion || !Horario || !Materia) {
+        throw new Error('Uno o más modelos requeridos no fueron encontrados');
     }
 
     const transaction = await sequelize.transaction();
 
     try {
-      const grupo = await GrupoMateria.findByPk(grupoMateriaId, {
-        lock: transaction.LOCK.UPDATE,
-        transaction
-      });
+        // ==========================================================
+        // ✅ VALIDACIÓN DE CHOQUE DE HORARIO
+        // ==========================================================
+        
+        // 1. Obtenemos el horario del grupo al que se intenta inscribir
+        const grupoParaInscribir = await GrupoMateria.findByPk(grupoMateriaId, {
+            include: [{ model: Horario, as: 'horario' }],
+            transaction
+        });
 
-      if (!grupo) {
-        throw new UnprocessableEntityError(`El grupo de materia con ID ${grupoMateriaId} no existe.`);
-      }
+        if (!grupoParaInscribir || !grupoParaInscribir.horario) {
+            throw new UnprocessableEntityError(`El grupo ${grupoMateriaId} o su horario no fueron encontrados.`);
+        }
 
-      if (!grupo.estado) {
-        throw new UnprocessableEntityError(`El grupo ${grupo.grupo} está inactivo.`);
-      }
+        // 2. Obtenemos TODAS las inscripciones actuales del estudiante en la misma gestión
+        const inscripcionesActuales = await Inscripcion.findAll({
+            where: { estudianteId, gestion },
+            include: [{
+                model: GrupoMateria,
+                as: 'grupoMateria',
+                include: [
+                    { model: Horario, as: 'horario' },
+                    { model: Materia, as: 'materia', attributes: ['nombre'] }
+                ]
+            }],
+            transaction
+        });
 
-      if (grupo.cupo <= 0) {
-        throw new UnprocessableEntityError(`No hay cupos disponibles.`);
-      }
+        // 3. Iteramos y comparamos cada horario inscrito con el nuevo
+        for (const inscripcion of inscripcionesActuales) {
+            const horarioInscrito = inscripcion.grupoMateria.horario;
+            if (!horarioInscrito) continue;
 
-      const existingInscription = await Inscripcion.findOne({
-        where: { estudianteId, grupoMateriaId },
-        transaction
-      });
+            // Comparamos los días (ej: "lun-mie-vie" vs "mar-jue") " [], "
+            const diasNuevo = grupoParaInscribir.horario.dia.toLowerCase().split('-');
+            const diasInscrito = horarioInscrito.dia.toLowerCase().split('-');
+            const diasEnComun = diasNuevo.some(dia => diasInscrito.includes(dia));
 
-      if (existingInscription) {
-        throw new ConflictError(`El estudiante ya está inscrito en este grupo.`);
-      }
+            if (diasEnComun) {
+                // Si comparten al menos un día, comparamos las horas
+                const inicioNuevo = new Date(`1970-01-01T${grupoParaInscribir.horario.horaInicio}Z`);
+                const finNuevo = new Date(`1970-01-01T${grupoParaInscribir.horario.horaFin}Z`);
+                const inicioInscrito = new Date(`1970-01-01T${horarioInscrito.horaInicio}Z`);
+                const finInscrito = new Date(`1970-01-01T${horarioInscrito.horaFin}Z`);
 
-      const inscripcion = await Inscripcion.create({
-        estudianteId,
-        grupoMateriaId,
-        gestion,
-        fecha: new Date()
-      }, { transaction });
+                // Condición de choque: (InicioA < FinB) y (FinA > InicioB)
+                if (inicioNuevo < finInscrito && finNuevo > inicioInscrito) {
+                    // ✅ MENSAJE DE ERROR MEJORADO
+                    const materiaConflicto = inscripcion.grupoMateria.materia.nombre;
+                    const horariosConflicto = `${horarioInscrito.dia} ${horarioInscrito.horaInicio}-${horarioInscrito.horaFin}`;
+                    
+                    throw new ConflictError(
+                        `Choque de horario detectado: ya estás inscrito en "${materiaConflicto}" (${horariosConflicto})`
+                    );
+                }
+            }
+        }
+        
+        // ==========================================================
+        // ✅ FIN: VALIDACIÓN DE CHOQUE DE HORARIO
+        // ==========================================================
 
-      await grupo.decrement('cupo', { by: 1, transaction });
+        // 4. Continuamos con las validaciones existentes
+        const grupo = grupoParaInscribir;
 
-      await transaction.commit();
+        if (!grupo.estado) {
+            throw new UnprocessableEntityError(`El grupo ${grupo.grupo} está inactivo.`);
+        }
 
-      const cuposRestantes = grupo.cupo - 1;
+       if (grupo.cupo <= 0) {
+    throw new UnprocessableEntityError(
+        `No se pudo completar la inscripción: el grupo "${grupoNombre}" no tiene cupos disponibles.`
+    );
+}
 
-      console.log('--- INSCRIPCIÓN FINALIZADA (ÉXITO) ---');
-      console.log(`[SUCCESS] Estudiante '${estudianteNombre}' inscrito correctamente.`);
-      console.log(`[SUCCESS] ID de inscripción: ${inscripcion.id}`);
-      console.log(`[SUCCESS] Cupos restantes en el grupo '${grupoNombre}': ${cuposRestantes}`);
+        const existingInscription = await Inscripcion.findOne({
+            where: { estudianteId, grupoMateriaId },
+            transaction
+        });
 
-      return {
-        success: true,
-        status: 'confirmed',
-        inscripcionId: inscripcion.id,
-        cuposRestantes,
-      };
+        if (existingInscription) {
+            throw new ConflictError(`El estudiante ya está inscrito en este grupo.`);
+        }
+
+        // 5. Si todas las validaciones pasan, creamos la inscripción
+        const inscripcion = await Inscripcion.create({
+            estudianteId,
+            grupoMateriaId,
+            gestion,
+            fecha: new Date()
+            
+        }, { transaction });
+
+
+        const cuposRestantes = grupo.cupo - 1;
+
+        await grupo.decrement('cupo', { by: 1, transaction });
+
+        await transaction.commit();
+
+        
+
+        console.log('--- INSCRIPCIÓN FINALIZADA (ÉXITO) ---');
+        console.log(`[SUCCESS] Estudiante '${estudianteNombre}' inscrito correctamente.`);
+        console.log(`[SUCCESS] Cupos restantes: ${cuposRestantes}`);
+
+        return {
+            success: true,
+            status: 'confirmed',
+            inscripcionId: inscripcion.id,
+            cuposRestantes,
+        };
 
     } catch (error) {
-      await transaction.rollback();
+        await transaction.rollback();
 
-      console.log('--- INSCRIPCIÓN FINALIZADA (FALLIDA) ---');
-      console.log(`[FAILURE] No se pudo inscribir a '${estudianteNombre}'.`);
-      console.log(`[FAILURE] Razón: ${error.message}`); // El mensaje viene de nuestras excepciones personalizadas
+        console.log('--- INSCRIPCIÓN FINALIZADA (FALLIDA) ---');
+        console.log(`[FAILURE] No se pudo inscribir a '${estudianteNombre}'.`);
+        console.log(`[FAILURE] Razón: ${error.message}`);
 
-      throw error;
+        throw error;
     }
-  }
-
+}
   shouldRetry(error) {
     // Determinar si el error es recuperable
     const retryableErrors = [

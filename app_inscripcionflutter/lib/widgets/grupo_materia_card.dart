@@ -46,50 +46,70 @@ class _GrupoMateriaCardState extends State<GrupoMateriaCard> {
   }
 
   void _startPolling() {
-    _pollingTimer?.cancel();
-    print('INICIANDO POLLING para el grupo: ${widget.grupo.materia.nombre} - ${widget.grupo.grupo}');
+  _pollingTimer?.cancel();
+  print('INICIANDO POLLING para el grupo: ${widget.grupo.materia.nombre} - ${widget.grupo.grupo}');
 
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      final taskInfo = _pendingTaskInfo;
-      if (taskInfo == null) {
-        print('ERROR DE POLLING: No hay info de la tarea. Cancelando timer.');
-        timer.cancel();
-        return;
+  int pollingCount = 0;
+  const int maxPollingAttempts = 20;
+
+  _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+    
+    if (pollingCount >= maxPollingAttempts) {
+      print('!!! TIMEOUT ALCANZADO. Deteniendo sondeo.');
+      timer.cancel(); 
+      
+      if (mounted) {
+        setState(() {
+          _currentStatus = InscriptionStatus.rejected; 
+        });
       }
+      return; 
+    }
+    
+    pollingCount++; 
 
-      try {
-        final task = await ApiService.getTaskStatus(
-          taskInfo['queueName'],
-          taskInfo['taskId'],
-        );
+    final taskInfo = _pendingTaskInfo;
+    if (taskInfo == null) {
+      print('ERROR DE POLLING: No hay info de la tarea. Cancelando timer.');
+      timer.cancel();
+      return;
+    }
 
-        if (task['status'] == 'completed' || task['status'] == 'failed' || task['status'] == 'error') {
-          print('!!! ESTADO FINAL DETECTADO: "${task['status']}". Deteniendo sondeo y actualizando UI.');
-          
-          timer.cancel();
-          
-          final prefs = await SharedPreferences.getInstance();
-          final pendingJson = prefs.getString('pendingInscriptions') ?? '{}';
-          final Map<String, dynamic> pending = json.decode(pendingJson);
-          pending.remove(widget.grupo.id.toString());
-          await prefs.setString('pendingInscriptions', json.encode(pending));
+    try {
+      final task = await ApiService.getTaskStatus(
+        taskInfo['queueName'],
+        taskInfo['taskId'],
+      );
 
+      if (task['status'] == 'completed' || task['status'] == 'failed' || task['status'] == 'error') {
+        print('!!! ESTADO FINAL DETECTADO: "${task['status']}". Deteniendo sondeo y actualizando UI.');
+        
+        timer.cancel();
+        
+        final prefs = await SharedPreferences.getInstance();
+        final pendingJson = prefs.getString('pendingInscriptions') ?? '{}';
+        final Map<String, dynamic> pending = json.decode(pendingJson);
+        pending.remove(widget.grupo.id.toString());
+        await prefs.setString('pendingInscriptions', json.encode(pending));
 
-          final finalStatus = task['status'] == 'completed' 
+        // Actualizar el estado final en la UI
+        final finalStatus = task['status'] == 'completed' 
             ? InscriptionStatus.confirmed 
             : InscriptionStatus.rejected;
             
-          if (mounted) {
-            setState(() {
-              _currentStatus = finalStatus;
-            });
-          }
+        if (mounted) {
+          setState(() {
+            _currentStatus = finalStatus;
+          });
         }
-      } catch (e) {
-        print('ERROR CRÍTICO DURANTE EL POLLING: ${e.toString()}');
       }
-    });
-  }
+    } catch (e) {
+      print('ERROR CRÍTICO DURANTE EL POLLING: ${e.toString()}');
+      timer.cancel(); // Detener también en caso de error de red
+    }
+  });
+}
+
 
 Future<void> _handleInscription() async {
   final authProvider = Provider.of<AuthProvider>(context, listen: false);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { validarChoqueConInscripciones } from '../utils/scheduleUtils';
 import {
   getGruposMateria,
   getInscripcionesByEstudiante,
@@ -6,10 +7,10 @@ import {
 import { useParams, Link } from 'react-router-dom';
 import GrupoMateriaCard from "../components/GrupoMateriaCard";
 import { useAuth } from "../context/AuthContext";
-import "./InscriptionPage.css"; // Importa el CSS
+import "./InscriptionPage.css";
 
 const InscriptionPage = () => {
-const { materiaId } = useParams();
+  const { materiaId } = useParams();
 
   const [grupos, setGrupos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,41 +19,48 @@ const { materiaId } = useParams();
   const { currentStudentId } = useAuth();
 
   useEffect(() => {
-    // if (!currentStudentId) {
-    //   setGrupos([]);
-    //   setLoading(false);
-    //   return;
-    // }
-if (!currentStudentId || !materiaId) return;
+    if (!currentStudentId || !materiaId) return;
 
     const fetchData = async () => {
-    setLoading(true);
+      setLoading(true);
 
       try {
+        // Obtener tareas pendientes del localStorage
         const pendingTasksJSON = localStorage.getItem('pendingInscriptions');
         const pendingTasks = pendingTasksJSON ? JSON.parse(pendingTasksJSON) : {};
+
+        // ✅ Obtener grupos e inscripciones en paralelo
         const [gruposData, inscripcionesData] = await Promise.all([
-             getGruposMateria(materiaId),
-          // getGruposMateria(),
+          getGruposMateria(materiaId),
           getInscripcionesByEstudiante(currentStudentId),
         ]);
 
         const enrolledGroupIds = new Set(
-          inscripcionesData.map((insc) => insc.grupoMateria.id)
+          inscripcionesData.map((insc) => insc.grupoMateriaId)
         );
 
         const gruposConEstado = gruposData.map(grupo => {
           const pendingTaskInfo = pendingTasks[grupo.id];
+          const isEnrolled = enrolledGroupIds.has(grupo.id);
+          
+          let conflictResult = null;
+          if (!isEnrolled) {
+            conflictResult = validarChoqueConInscripciones(grupo, inscripcionesData);
+          }
+
           return {
             ...grupo,
-            isEnrolled: enrolledGroupIds.has(grupo.id),
-            pendingTask: pendingTaskInfo || null, 
+            isEnrolled: isEnrolled,
+            pendingTask: pendingTaskInfo || null,
+            hasConflict: conflictResult?.hasConflict || false,
+            conflictInfo: conflictResult, 
           };
         });
 
         setGrupos(gruposConEstado);
       } catch (err) {
-        setError("No se pudieron cargar los cursos. Intenta más tarde.");
+        console.error('Error al cargar datos:', err);
+        setError("No se pudieron cargar los grupos. Intenta más tarde.");
       } finally {
         setLoading(false);
       }
@@ -61,29 +69,33 @@ if (!currentStudentId || !materiaId) return;
     fetchData();
   }, [currentStudentId, materiaId]);
 
-  if (loading)
+  if (loading) {
     return (
       <div className="page-container">
         <h2>Cargando grupos...</h2>
       </div>
     );
-  if (error)
+  }
+
+  if (error) {
     return (
       <div className="page-container">
         <h2 className="error-text">{error}</h2>
       </div>
     );
+  }
 
   return (
     <div className="page-container">
       <header style={{ textAlign: 'center', marginBottom: '30px' }}>
-        {/* ✅ Añadimos un enlace para volver a la lista principal */}
-        <Link to="/" style={{ textDecoration: 'none', color: '#007bff' }}>&larr; Volver a todas las materias</Link>
+        <Link to="/" style={{ textDecoration: 'none', color: '#007bff' }}>
+          &larr; Volver a todas las materias
+        </Link>
         <h1 style={{ marginTop: '10px' }}>Grupos Disponibles</h1>
       </header>
       <main>
         <div className="cards-container">
-           {grupos.length > 0 ? (
+          {grupos.length > 0 ? (
             grupos.map((grupo) => (
               <GrupoMateriaCard 
                 key={`${currentStudentId}-${grupo.id}`}
@@ -91,19 +103,18 @@ if (!currentStudentId || !materiaId) return;
                 studentId={currentStudentId}
                 isEnrolled={grupo.isEnrolled} 
                 pendingTask={grupo.pendingTask}
-                 materiaId={materiaId}
+                materiaId={materiaId}
+                hasConflict={grupo.hasConflict}
+                conflictInfo={grupo.conflictInfo} 
               />
             ))
           ) : (
-            <p>No hay grupos disponibles para esta materia.</p>)}
+            <p>No hay grupos disponibles para esta materia.</p>
+          )}
         </div>
       </main>
     </div>
   );
 };
-
-const pageStyle = { fontFamily: 'sans-serif', padding: '20px' };
-const gridStyle = { display: 'flex', flexWrap: 'wrap', justifyContent: 'center' };
-
 
 export default InscriptionPage;

@@ -28,7 +28,7 @@ class UnprocessableEntityError extends ApiError {
 
 class NotFoundError extends ApiError {
   constructor(message) {
-    super(message, 404); // Not Found
+    super(message, 404); // Not 
   }
 }
 

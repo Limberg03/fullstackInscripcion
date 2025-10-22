@@ -233,19 +233,24 @@ async dequeue(batchSize = 1) {
     return true;
   }
 
-  async requeueTask(taskId) {
+  async requeueTask(taskId, error = null) {  // ✅ Agregar parámetro error
     const taskData = await this.redis.hget(this.keys.tasks, taskId);
     if (!taskData) return false;
 
     const task = Task.deserialize(taskData);
 
     if (task.retryCount >= this.maxRetries) {
-      await this.updateTaskStatus(taskId, 'failed');
+      await this.updateTaskStatus(taskId, 'failed', null, error);  // ✅ Pasar el error
       return false;
     }
 
     task.status = 'pending';
     task.retryCount = (task.retryCount || 0) + 1;
+    
+    // ✅ NUEVO: Guardar el error en el task para que persista entre reintentos
+    if (error) {
+      task.error = error;
+    }
     
     const pipeline = this.redis.pipeline();
     
@@ -253,7 +258,7 @@ async dequeue(batchSize = 1) {
     
     pipeline.lpush(this.keys.pending, task.serialize());
     
-    pipeline.hset(this.keys.tasks, taskId, task.serialize());
+    pipeline.hset(this.keys.tasks, taskId, task.serialize());  // ✅ Ahora guarda con error
     
     pipeline.hincrby(this.keys.stats, 'processing', -1);
     pipeline.hincrby(this.keys.stats, 'pending', 1);
@@ -641,7 +646,7 @@ class QueueWorker extends EventEmitter {
         break;
 
       case 'task:failed':
-        const shouldRetry = await this.queue.requeueTask(taskId);
+        const shouldRetry = await this.queue.requeueTask(taskId, error);  // ✅ Pasar el error
         this.stats.totalFailed++;
         
         this.emit('task:failed', { taskId, error, retry: shouldRetry, workerId: this.id });
