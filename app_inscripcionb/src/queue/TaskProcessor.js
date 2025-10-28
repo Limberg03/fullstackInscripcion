@@ -305,9 +305,9 @@ class TaskProcessor {
     return result;
   }
 
-
-   async handleRequestSeat(data) {
-    const { estudianteId, grupoMateriaId, gestion, estudianteNombre, materiaNombre, grupoNombre } = data;
+//esto tengo en queue-> TaskProcessor.js->
+ async handleRequestSeat(data) {
+    const { estudianteId, grupoMateriaId, materiaId, gestion, estudianteNombre, materiaNombre, grupoNombre } = data;
 
     console.log('--- PROCESANDO INSCRIPCIÓN ---');
     console.log(`[WORKER] Tarea para el estudiante: '${estudianteNombre}' (ID: ${estudianteId})`);
@@ -317,8 +317,9 @@ class TaskProcessor {
     const Inscripcion = this.models.Inscripcion;
     const Horario = this.models.Horario;
     const Materia = this.models.Materia;
+    const HistoricoAcademico = this.models.HistoricoAcademico; // ✅ NUEVO
 
-    if (!GrupoMateria || !Inscripcion || !Horario || !Materia) {
+    if (!GrupoMateria || !Inscripcion || !Horario || !Materia || !HistoricoAcademico) {
         throw new Error('Uno o más modelos requeridos no fueron encontrados');
     }
 
@@ -326,10 +327,27 @@ class TaskProcessor {
 
     try {
         // ==========================================================
+        // ✅ VALIDACIÓN EXTRA: Doble check de materia ya aprobada
+        // ==========================================================
+        const yaAprobo = await HistoricoAcademico.findOne({
+            where: {
+                estudianteId,
+                materiaId: materiaId,
+                estado: 'APROBADO'
+            },
+            transaction
+        });
+
+        if (yaAprobo) {
+            throw new ConflictError(
+                `Ya aprobaste "${materiaNombre}" en el periodo ${yaAprobo.periodo} con nota ${yaAprobo.nota}`
+            );
+        }
+
+        // ==========================================================
         // ✅ VALIDACIÓN DE CHOQUE DE HORARIO
         // ==========================================================
         
-        // 1. Obtenemos el horario del grupo al que se intenta inscribir
         const grupoParaInscribir = await GrupoMateria.findByPk(grupoMateriaId, {
             include: [{ model: Horario, as: 'horario' }],
             transaction
@@ -339,7 +357,6 @@ class TaskProcessor {
             throw new UnprocessableEntityError(`El grupo ${grupoMateriaId} o su horario no fueron encontrados.`);
         }
 
-        // 2. Obtenemos TODAS las inscripciones actuales del estudiante en la misma gestión
         const inscripcionesActuales = await Inscripcion.findAll({
             where: { estudianteId, gestion },
             include: [{
@@ -353,26 +370,21 @@ class TaskProcessor {
             transaction
         });
 
-        // 3. Iteramos y comparamos cada horario inscrito con el nuevo
         for (const inscripcion of inscripcionesActuales) {
             const horarioInscrito = inscripcion.grupoMateria.horario;
             if (!horarioInscrito) continue;
 
-            // Comparamos los días (ej: "lun-mie-vie" vs "mar-jue") " [], "
             const diasNuevo = grupoParaInscribir.horario.dia.toLowerCase().split('-');
             const diasInscrito = horarioInscrito.dia.toLowerCase().split('-');
             const diasEnComun = diasNuevo.some(dia => diasInscrito.includes(dia));
 
             if (diasEnComun) {
-                // Si comparten al menos un día, comparamos las horas
                 const inicioNuevo = new Date(`1970-01-01T${grupoParaInscribir.horario.horaInicio}Z`);
                 const finNuevo = new Date(`1970-01-01T${grupoParaInscribir.horario.horaFin}Z`);
                 const inicioInscrito = new Date(`1970-01-01T${horarioInscrito.horaInicio}Z`);
                 const finInscrito = new Date(`1970-01-01T${horarioInscrito.horaFin}Z`);
 
-                // Condición de choque: (InicioA < FinB) y (FinA > InicioB)
                 if (inicioNuevo < finInscrito && finNuevo > inicioInscrito) {
-                    // ✅ MENSAJE DE ERROR MEJORADO
                     const materiaConflicto = inscripcion.grupoMateria.materia.nombre;
                     const horariosConflicto = `${horarioInscrito.dia} ${horarioInscrito.horaInicio}-${horarioInscrito.horaFin}`;
                     
@@ -384,21 +396,20 @@ class TaskProcessor {
         }
         
         // ==========================================================
-        // ✅ FIN: VALIDACIÓN DE CHOQUE DE HORARIO
+        // ✅ VALIDACIONES EXISTENTES
         // ==========================================================
 
-        // 4. Continuamos con las validaciones existentes
         const grupo = grupoParaInscribir;
 
         if (!grupo.estado) {
             throw new UnprocessableEntityError(`El grupo ${grupo.grupo} está inactivo.`);
         }
 
-       if (grupo.cupo <= 0) {
-    throw new UnprocessableEntityError(
-        `No se pudo completar la inscripción: el grupo "${grupoNombre}" no tiene cupos disponibles.`
-    );
-}
+        if (grupo.cupo <= 0) {
+            throw new UnprocessableEntityError(
+                `No se pudo completar la inscripción: el grupo "${grupoNombre}" no tiene cupos disponibles.`
+            );
+        }
 
         const existingInscription = await Inscripcion.findOne({
             where: { estudianteId, grupoMateriaId },
@@ -409,23 +420,21 @@ class TaskProcessor {
             throw new ConflictError(`El estudiante ya está inscrito en este grupo.`);
         }
 
-        // 5. Si todas las validaciones pasan, creamos la inscripción
+        // ==========================================================
+        // ✅ CREAR INSCRIPCIÓN
+        // ==========================================================
         const inscripcion = await Inscripcion.create({
             estudianteId,
             grupoMateriaId,
             gestion,
             fecha: new Date()
-            
         }, { transaction });
-
 
         const cuposRestantes = grupo.cupo - 1;
 
         await grupo.decrement('cupo', { by: 1, transaction });
 
         await transaction.commit();
-
-        
 
         console.log('--- INSCRIPCIÓN FINALIZADA (ÉXITO) ---');
         console.log(`[SUCCESS] Estudiante '${estudianteNombre}' inscrito correctamente.`);

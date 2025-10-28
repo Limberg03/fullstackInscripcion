@@ -14,7 +14,8 @@ const Prerequisito = sequelize.define('Prerequisito', {
     references: {
       model: 'materias',
       key: 'id'
-    }
+    },
+    comment: 'Materia que requiere el prerequisito'
   },
   requiereId: {
     type: DataTypes.INTEGER,
@@ -23,7 +24,26 @@ const Prerequisito = sequelize.define('Prerequisito', {
     references: {
       model: 'materias',
       key: 'id'
-    }
+    },
+    comment: 'Materia que es prerequisito (debe estar aprobada)'
+  },
+  notaMinima: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 51,
+    field: 'nota_minima',
+    validate: {
+      min: 0,
+      max: 100
+    },
+    comment: 'Nota mínima requerida para aprobar el prerequisito (por defecto 51)'
+  },
+  esObligatorio: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    field: 'es_obligatorio',
+    comment: 'Si es falso, es un prerequisito sugerido pero no obligatorio'
   }
 }, {
   tableName: 'prerequisitos',
@@ -33,7 +53,8 @@ const Prerequisito = sequelize.define('Prerequisito', {
   indexes: [
     {
       unique: true,
-      fields: ['materia_id', 'requiere_id']
+      fields: ['materia_id', 'requiere_id'],
+      name: 'prerequisitos_unique_constraint'
     }
   ]
 });

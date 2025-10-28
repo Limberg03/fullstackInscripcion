@@ -29,6 +29,22 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
+      // ============ CAMPOS NUEVOS ============
+      nota_minima: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 51,
+        validate: {
+          min: 0,
+          max: 100
+        }
+      },
+      es_obligatorio: {
+        type: Sequelize.BOOLEAN,
+        allowNull: false,
+        defaultValue: true
+      },
+      // =======================================
       created_at: {
         allowNull: false,
         type: Sequelize.DATE,

@@ -148,23 +148,25 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, var(--primary-light) 0%, rgba(235, 233, 254, 0.5) 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);  /* CAMBIAR de var(--primary-light) */
 }
 
+/* Card icon - CAMBIAR para que tenga fondo blanco con icono azul */
 .card-icon {
   width: 48px;
   height: 48px;
-  background: var(--primary-color);
+  background: var(--white);  /* CAMBIAR de var(--primary-color) */
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--white);
+  color: var(--primary-color);  /* CAMBIAR de var(--white) */
   flex-shrink: 0;
+  font-size: 1.5rem;
 }
 
 .card-badge {
-  background: var(--white);
+  background: rgba(255, 255, 255, 0.95);  /* CAMBIAR de var(--white) */
   color: var(--primary-color);
   padding: 6px 12px;
   border-radius: 8px;

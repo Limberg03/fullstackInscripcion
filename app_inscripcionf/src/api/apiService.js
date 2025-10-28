@@ -84,3 +84,73 @@ export const getInscripcionesByEstudiante = async (estudianteId) => {
     return [];
   }
 };
+
+
+/**
+ * Obtiene los grupos asignados a un docente específico.
+ */
+export const getGruposPorDocente = async (docenteId) => {
+  try {
+    const response = await api.get(`/grupos-materia/docente/${docenteId}`);
+    return response.data.data;
+  } catch (error) {
+    console.error("Error fetching grupos por docente:", error);
+    throw error.response?.data || { message: "Error de red" };
+  }
+};
+
+
+/**
+ * Obtiene la lista de estudiantes inscritos/notas de un grupo.
+ */
+export const getNotasPorGrupo = async (grupoMateriaId) => {
+  try {
+    const response = await api.get(`/notas/grupo-materia/${grupoMateriaId}`);
+    return response.data.data; 
+  } catch (error) {
+    console.error("Error fetching notas por grupo:", error);
+    throw error.response?.data || { message: "Error de red" };
+  }
+};
+
+/**
+ * Crea una nueva nota para un estudiante en un grupo.
+ */
+export const crearNota = async (data) => {
+  // data = { calificacion, observacion, grupoMateriaId, estudianteId }
+  try {
+    const response = await api.post('/notas', data);
+    return response.data.data;
+  } catch (error) {
+    console.error("Error al crear la nota:", error);
+    throw error.response?.data || { message: "Error de red" };
+  }
+};
+
+/**
+ * Actualiza la calificación de una nota existente.
+ */
+export const actualizarNota = async (notaId, calificacion, observacion) => {
+  try {
+    const response = await api.patch(`/notas/${notaId}`, { calificacion, observacion });
+    return response.data.data;
+  } catch (error) {
+    console.error("Error al actualizar la nota:", error);
+    throw error.response?.data || { message: "Error de red" };
+  }
+};
+
+// --- FUNCIONES PARA EL HISTÓRICO DEL ESTUDIANTE ---
+
+/**
+ * Obtiene el histórico académico completo de un estudiante.
+ */
+export const getHistoricoEstudiante = async (estudianteId) => {
+  try {
+    const response = await api.get(`/historico/estudiante/${estudianteId}`);
+    return response.data.data; // El controlador devuelve { historico, estadisticas }
+  } catch (error) {
+    console.error("Error fetching histórico:", error);
+    throw error.response?.data || { message: "Error de red" };
+  }
+};

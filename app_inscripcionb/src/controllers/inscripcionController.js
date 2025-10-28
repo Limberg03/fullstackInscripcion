@@ -21,78 +21,144 @@ const inscripcionController = {
 
 
 requestSeat: async (req, res, next) => {
-    try {
-      const { estudianteId, grupoMateriaId, gestion } = req.body;
+  try {
+    const { estudianteId, grupoMateriaId, gestion } = req.body;
 
-      const [estudiante, grupo] = await Promise.all([
-        Estudiante.findByPk(estudianteId),
-        GrupoMateria.findByPk(grupoMateriaId, {
-          include: [{ model: Materia, as: 'materia' }] 
-        })
-      ]);
-      
-      // Validaciones tempranas
-      if (!estudiante) {  //lanza el error..
-        throw new NotFoundError(`El estudiante con ID ${estudianteId} no fue encontrado.`);
-      }
-      if (!grupo) {
-        throw new UnprocessableEntityError(`El grupo de materia con ID ${grupoMateriaId} no existe.`);
-      }
-      
-      const estudianteNombre = estudiante.nombre;
-      const materiaNombre = grupo.materia.nombre;
-      const grupoNombre = grupo.grupo;
-
-      // ✅ 2. LOG DE "INSCRIPCIÓN INICIADA"
-      console.log('--- INSCRIPCIÓN INICIADA ---');
-      console.log(`[INFO] Estudiante: ${estudianteNombre} (ID: ${estudianteId})`);
-      console.log(`[INFO] Materia: ${materiaNombre} (Grupo: ${grupoNombre})`);
-      
-      if (grupo.cupo <= 0) {
-        throw new UnprocessableEntityError(`No hay cupos disponibles.`);
-      }
-
-      const existingInscription = await Inscripcion.findOne({ where: { estudianteId, grupoMateriaId } });
-      if (existingInscription) {
+    const [estudiante, grupo] = await Promise.all([
+      Estudiante.findByPk(estudianteId),
+      GrupoMateria.findByPk(grupoMateriaId, {
+        include: [{ model: Materia, as: 'materia' }] 
+      })
+    ]);
     
-        debugger;
-        throw new ConflictError(`El estudiante ya está inscrito en este grupo.`);
-      }
-      
-      // --- Lógica para encolar ---
-      const service = getQueueService();
-      await service.initialize();
-      
-      const result = await service.enqueueTaskAutoBalance({
-        type: 'inscription',
-        model: 'Inscripcion',
-        operation: 'requestSeat',
-        data: {
-          estudianteId,
-          grupoMateriaId,
-          gestion: gestion || new Date().getFullYear(),
-          // ✅ 3. ENVIAMOS LOS NOMBRES AL WORKER
-          // Así el worker no tiene que volver a consultar la base de datos.
-          estudianteNombre,
-          materiaNombre,
-          grupoNombre
-        }
-      });
-
-      // ✅ 4. LOG DE "INSCRIPCIÓN PENDIENTE"
-      console.log('--- INSCRIPCIÓN PENDIENTE ---');
-      console.log(`[INFO] La solicitud fue encolada en '${result.queueName}'`);
-      console.log(`[INFO] Tarea ID: ${result.taskId}`);
-      
-      res.status(202).json({
-        ...result,
-        message: 'Solicitud de inscripción encolada exitosamente.',
-      });
-
-    } catch (error) {
-      next(error);
+    // Validaciones tempranas
+    if (!estudiante) {
+      throw new NotFoundError(`El estudiante con ID ${estudianteId} no fue encontrado.`);
     }
-  },
+    if (!grupo) {
+      throw new UnprocessableEntityError(`El grupo de materia con ID ${grupoMateriaId} no existe.`);
+    }
+    
+    const estudianteNombre = estudiante.nombre;
+    const materiaNombre = grupo.materia.nombre;
+    const materiaId = grupo.materia.id; // ✅ NUEVO
+    const grupoNombre = grupo.grupo;
+
+    console.log('--- INSCRIPCIÓN INICIADA ---');
+    console.log(`[INFO] Estudiante: ${estudianteNombre} (ID: ${estudianteId})`);
+    console.log(`[INFO] Materia: ${materiaNombre} (Grupo: ${grupoNombre})`);
+    
+    if (grupo.cupo <= 0) {
+      throw new UnprocessableEntityError(`No hay cupos disponibles.`);
+    }
+
+    const existingInscription = await Inscripcion.findOne({ 
+      where: { estudianteId, grupoMateriaId } 
+    });
+    if (existingInscription) {
+      throw new ConflictError(`El estudiante ya está inscrito en este grupo.`);
+    }
+
+    // ==========================================
+    // ✅ VALIDACIÓN 1: Ya aprobó la materia?
+    // ==========================================
+    const { HistoricoAcademico } = require('../models');
+    const yaAprobo = await HistoricoAcademico.findOne({
+      where: {
+        estudianteId,
+        materiaId: materiaId, // ✅ Usar materiaId, no grupoMateriaId
+        estado: 'APROBADO'
+      }
+    });
+
+    if (yaAprobo) {
+      throw new ConflictError(
+        `Ya aprobaste "${materiaNombre}" en el periodo ${yaAprobo.periodo} con nota ${yaAprobo.nota}`
+      );
+    }
+
+    // ==========================================
+    // ✅ VALIDACIÓN 2: Cumple prerequisitos?
+    // ==========================================
+    const { Prerequisito } = require('../models');
+    const prerequisitos = await Prerequisito.findAll({
+      where: { materiaId: materiaId },
+      include: [
+        {
+          model: Materia,
+          as: 'materiaRequerida',
+          attributes: ['id', 'nombre', 'sigla']
+        }
+      ]
+    });
+
+    if (prerequisitos.length > 0) {
+      const prerequisitosNoAprobados = [];
+      
+      for (const prereq of prerequisitos) {
+        const registroAprobado = await HistoricoAcademico.findOne({
+          where: {
+            estudianteId,
+            materiaId: prereq.requiereId,
+            estado: 'APROBADO',
+            nota: { [require('sequelize').Op.gte]: prereq.notaMinima || 51 }
+          }
+        });
+
+        if (!registroAprobado) {
+          prerequisitosNoAprobados.push({
+            materia: prereq.materiaRequerida.nombre,
+            sigla: prereq.materiaRequerida.sigla,
+            notaMinima: prereq.notaMinima || 51
+          });
+        }
+      }
+
+      if (prerequisitosNoAprobados.length > 0) {
+        const mensaje = prerequisitosNoAprobados
+          .map(p => `${p.sigla} - ${p.materia} (nota mín: ${p.notaMinima})`)
+          .join(', ');
+        
+        throw new UnprocessableEntityError(
+          `No cumples con los prerequisitos: ${mensaje}`
+        );
+      }
+    }
+
+    // ==========================================
+    // ✅ Si pasa todas las validaciones, encolar
+    // ==========================================
+    const service = getQueueService();
+    await service.initialize();
+    
+    const result = await service.enqueueTaskAutoBalance({
+      type: 'inscription',
+      model: 'Inscripcion',
+      operation: 'requestSeat',
+      data: {
+        estudianteId,
+        grupoMateriaId,
+        materiaId, // ✅ NUEVO: Para validaciones en worker
+        gestion: gestion || new Date().getFullYear(),
+        estudianteNombre,
+        materiaNombre,
+        grupoNombre
+      }
+    });
+
+    console.log('--- INSCRIPCIÓN PENDIENTE ---');
+    console.log(`[INFO] La solicitud fue encolada en '${result.queueName}'`);
+    console.log(`[INFO] Tarea ID: ${result.taskId}`);
+    
+    res.status(202).json({
+      ...result,
+      message: 'Solicitud de inscripción encolada exitosamente.',
+    });
+
+  } catch (error) {
+    next(error);
+  }
+},
 
   // Obtener todas las inscripciones
   getAll: async (req, res) => {
@@ -168,6 +234,51 @@ requestSeat: async (req, res, next) => {
       res.status(500).json({
         success: false,
         message: 'Error al obtener inscripciones',
+        error: error.message
+      });
+    }
+  },
+
+  getByGrupoMateria: async (req, res) => {
+    try {
+      const { grupoMateriaId } = req.params;
+
+      const inscripciones = await Inscripcion.findAll({
+        where: { grupoMateriaId },
+        include: [
+          {
+            model: Estudiante,
+            as: 'estudiante',
+            attributes: ['id', 'nombre', 'registro'] // Datos del estudiante
+          },
+          {
+            model: GrupoMateria,
+            as: 'grupoMateria',
+            attributes: ['id', 'grupo'],
+            include: [{ model: Materia, as: 'materia', attributes: ['nombre'] }]
+          },
+          {
+            model: Nota, // Incluimos la nota
+            as: 'nota',  // Usando el 'as' que DEBERÍAS tener en tus relaciones
+            required: false // IMPORTANTE: Traer al estudiante AUNQUE NO TENGA NOTA
+          }
+        ],
+        order: [
+          [{ model: Estudiante, as: 'estudiante' }, 'nombre', 'ASC']
+        ]
+      });
+
+      if (!inscripciones || inscripciones.length === 0) {
+        // No es un error, simplemente no hay inscritos
+        return res.status(200).json({ success: true, data: [] });
+      }
+
+      res.status(200).json({ success: true, data: inscripciones });
+
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Error al obtener inscripciones del grupo',
         error: error.message
       });
     }

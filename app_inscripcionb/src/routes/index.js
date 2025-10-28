@@ -22,6 +22,8 @@ const horarioRoutes = require('./horarioRoutes');
 const notaRoutes = require('./notaRoutes');
 const prerequisitoRoutes = require('./prerequisitoRoutes');
 const planEstudioRoutes = require('./planEstudioRoutes');
+const historicoAcademicoRoutes = require('./historicoAcademicoRoutes');
+
 
 const errorHandler1 = require('../middleware/errorHandler1');
 
@@ -92,6 +94,7 @@ router.use('/horarios', horarioRoutes);
 router.use('/notas', notaRoutes);
 router.use('/prerequisitos', prerequisitoRoutes);
 router.use('/planes-estudio', planEstudioRoutes);
+router.use('/historico', historicoAcademicoRoutes);
 router.use('/', trackingRoutes);
 
 
