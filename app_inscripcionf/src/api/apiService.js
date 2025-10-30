@@ -4,7 +4,9 @@ import axios from 'axios';
 
 // const API_URL = 'http://inscripcion-db.cho4yig62nii.us-east-2.rds.amazonaws.com:3000';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.MODE === 'production' 
+  ? '/api' 
+  : (import.meta.env.VITE_API_URL || 'http://localhost:3000');
 
 const api = axios.create({
   baseURL: API_URL,
@@ -12,6 +14,25 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+if (import.meta.env.DEV) {
+  api.interceptors.request.use(request => {
+    console.log('📤 Request:', request.method?.toUpperCase(), request.url);
+    return request;
+  });
+
+  api.interceptors.response.use(
+    response => {
+      console.log('✅ Response:', response.status, response.config.url);
+      return response;
+    },
+    error => {
+      console.error('❌ Error:', error.message, error.config?.url);
+      return Promise.reject(error);
+    }
+  );
+}
+
 
 export const getMaterias = async () => {
   try {
