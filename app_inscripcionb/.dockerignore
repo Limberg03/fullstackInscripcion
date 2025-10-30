@@ -1,0 +1,27 @@
+# Archivos y carpetas de Git
+.git
+.gitignore
+
+# Dependencias de Node (se instalan dentro del contenedor)
+node_modules
+
+# Archivos de configuración local (si los tienes)
+.env
+*.local
+
+# Archivos de Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Archivos de sistema operativo
+Thumbs.db
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Archivos de build (si los generas localmente y no en el Dockerfile)
+# dist/
+# build/

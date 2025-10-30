@@ -608,7 +608,34 @@
     </div>
 
    <script>
-    const API_BASE_URL = "http://localhost:3000/queue";
+    // ✅ FIX PARA AWS: Forzar HTTP y evitar ERR_SSL_PROTOCOL_ERROR
+    const getApiBaseUrl = () => {
+        const hostname = window.location.hostname;
+        const port = window.location.port;
+        
+        console.log('🌐 Detectando entorno...');
+        console.log('  Hostname:', hostname);
+        console.log('  Port:', port);
+        console.log('  Protocol:', window.location.protocol);
+        
+        // En localhost, usar HTTP siempre
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            console.log('✅ Entorno: DESARROLLO (localhost)');
+            return 'http://localhost:3000/queue';
+        }
+        
+        // En producción (AWS), FORZAR HTTP (no HTTPS)
+        // Tu servidor AWS NO tiene certificado SSL, solo acepta HTTP
+        console.log('✅ Entorno: PRODUCCIÓN (AWS)');
+        
+        // Construir URL con HTTP forzado
+        const url = `http://${hostname}:3000/queue`;
+        console.log('🔗 API URL:', url);
+        return url;
+    };
+    
+    const API_BASE_URL = getApiBaseUrl();
+    console.log('📡 API Base URL Final:', API_BASE_URL);
 
     const state = {
         selectedQueue: null,
@@ -643,23 +670,41 @@
     };
 
     // --- FUNCIONES DE API --- (Sin cambios aquí)
-    async function apiCall(endpoint, options = {}) {
-        dom.loader.style.display = "block";
-        try {
-            const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || `Error ${response.status}`);
-            }
-            return response.json();
-        } catch (error) {
-            console.error(`API Call Error (${endpoint}):`, error);
-            updateApiStatus(false, error.message);
-            throw error;
-        } finally {
-            dom.loader.style.display = "none";
+  async function apiCall(endpoint, options = {}) {
+    dom.loader.style.display = "block";
+    
+    try {
+        // Construir URL
+        let url = `${API_BASE_URL}${endpoint}`;
+        
+        // ✅ CRÍTICO: Forzar HTTP (reemplazar https: por http:)
+        url = url.replace(/^https:/, 'http:');
+        
+        console.log(`📤 API Call: ${options.method || 'GET'} ${url}`);
+        
+        const response = await fetch(url, {
+            ...options,
+            mode: 'cors',
+            credentials: options.credentials || 'omit'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Error ${response.status}`);
         }
+        
+        const data = await response.json();
+        updateApiStatus(true);
+        return data;
+        
+    } catch (error) {
+        console.error(`❌ API Call Error (${endpoint}):`, error);
+        updateApiStatus(false, error.message);
+        throw error;
+    } finally {
+        dom.loader.style.display = "none";
     }
+}
 
     // --- FUNCIONES DE RENDERIZADO ---
     
