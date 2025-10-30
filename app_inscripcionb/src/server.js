@@ -184,7 +184,8 @@ if (SERVER_CONFIG.enableClustering && cluster.isMaster) {
       server.maxRequestsPerSocket = SERVER_CONFIG.maxRequestsPerSocket;
       
       // 5. INICIAR SERVIDOR
-      server.listen(SERVER_CONFIG.port, SERVER_CONFIG.backlog, () => {
+      // server.listen(SERVER_CONFIG.port, SERVER_CONFIG.backlog, () => {
+        server.listen(SERVER_CONFIG.port, '0.0.0.0', () => {
         const workerInfo = cluster.worker ? `Worker ${cluster.worker.id}` : 'Single process';
         console.log(`🚀 ${workerInfo} listening on port ${SERVER_CONFIG.port}`);
         console.log(`📡 CORS enabled for: http://localhost:5173`);

@@ -2,16 +2,20 @@ const { QueueManager } = require('../queue/QueueManager');
 
 class QueueService {
   constructor() {
-    this.queueManager = new QueueManager({
-      redisHost: process.env.REDIS_HOST || 'localhost',
-      redisPort: process.env.REDIS_PORT || 6379,
-      redisPassword: process.env.REDIS_PASSWORD,
-      redisDb: process.env.REDIS_DB || 0,
-      maxRetries: parseInt(process.env.QUEUE_MAX_RETRIES) || 3,
-      retryDelay: parseInt(process.env.QUEUE_RETRY_DELAY) || 1000
-    });
-    this.initialized = false;
-  }
+  this.queueManager = new QueueManager({
+    redisHost: process.env.REDIS_HOST || 'localhost',
+    redisPort: process.env.REDIS_PORT || 6380,
+    redisPassword: process.env.REDIS_PASSWORD,
+    redisDb: process.env.REDIS_DB || 0,
+    maxRetries: parseInt(process.env.QUEUE_MAX_RETRIES) || 3,
+    retryDelay: parseInt(process.env.QUEUE_RETRY_DELAY) || 1000,
+    connectTimeout: 10000,           // ← AGREGAR: 10 segundos timeout
+    enableReadyCheck: true,          // ← AGREGAR
+    lazyConnect: false,              // ← AGREGAR
+    maxRetriesPerRequest: 3          // ← AGREGAR
+  });
+  this.initialized = false;
+}
 
   async initialize() {
     if (this.initialized) return;

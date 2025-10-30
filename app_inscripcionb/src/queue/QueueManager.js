@@ -713,29 +713,135 @@ class QueueWorker extends EventEmitter {
 
 // Redis-based Queue Manager
 class QueueManager extends EventEmitter {
-  constructor(options = {}) {
-    super();
-    this.queues = new Map();
-    this.workers = new Map();
-    this.maxRetries = options.maxRetries || 3;
-    this.retryDelay = options.retryDelay || 1000;
-    this.initialized = false;
+ constructor(options = {}) {
+  super();
+  this.queues = new Map();
+  this.workers = new Map();
+  this.maxRetries = options.maxRetries || 3;
+  this.retryDelay = options.retryDelay || 1000;
+  this.initialized = false;
+  
+  const redisHost = options.redisHost || process.env.REDIS_HOST || 'localhost';
+  const redisPort = parseInt(options.redisPort || process.env.REDIS_PORT || 6379);
+  const redisPassword = options.redisPassword || process.env.REDIS_PASSWORD;
+  const redisTLS = (options.redisTLS || process.env.REDIS_TLS || 'false') === 'true';
+  const isClusterMode = redisHost.includes('clustercfg');
+  
+  console.log('🔧 Redis Configuration:');
+  console.log('  Host:', redisHost);
+  console.log('  Port:', redisPort);
+  console.log('  Mode:', isClusterMode ? 'CLUSTER' : 'STANDALONE');
+  console.log('  TLS:', redisTLS ? 'ENABLED' : 'DISABLED');
+  console.log('  Password:', redisPassword ? 'SET' : 'NOT SET');
+  
+  if (isClusterMode) {
+    // ✅ CONFIGURACIÓN CON TLS PARA AWS ELASTICACHE CLUSTER
+    this.redis = new Redis.Cluster(
+      [{
+        host: redisHost,
+        port: redisPort
+      }],
+      {
+        redisOptions: {
+          password: redisPassword || undefined,
+          // ✅ TLS CONFIGURATION FOR AWS
+          tls: redisTLS ? {
+            checkServerIdentity: () => undefined, // AWS ElastiCache no usa certificados públicos
+            rejectUnauthorized: false // Necesario para AWS ElastiCache
+          } : undefined,
+          connectTimeout: 20000,
+          commandTimeout: 15000,
+          enableReadyCheck: true,
+          maxRetriesPerRequest: 3,
+          family: 4 // IPv4
+        },
+        clusterRetryStrategy: (times) => {
+          console.log(`🔄 Redis Cluster retry attempt ${times}/10`);
+          if (times > 10) {
+            console.error('❌ Redis Cluster: Max retry attempts reached');
+            return null;
+          }
+          return Math.min(times * 500, 3000);
+        },
+        enableReadyCheck: true,
+        maxRedirections: 16,
+        retryDelayOnFailover: 100,
+        retryDelayOnClusterDown: 300,
+        slotsRefreshTimeout: 15000,
+        dnsLookup: (address, callback) => setImmediate(callback, null, address),
+        natMap: {} // Para manejar IPs internas de AWS
+      }
+    );
     
-    this.redis = new Redis({
-      host: options.redisHost || process.env.REDIS_HOST || 'localhost',
-      port: options.redisPort || process.env.REDIS_PORT || 6379,
-      password: options.redisPassword || process.env.REDIS_PASSWORD,
-      db: options.redisDb || process.env.REDIS_DB || 0,
-      retryDelayOnFailover: 100,
-      enableReadyCheck: false,
-      maxRetriesPerRequest: null,
+    // Event listeners
+    this.redis.on('error', (err) => {
+      console.error('❌ Redis Cluster Error:', err.message);
     });
-
-      // ✅ NUEVO: Clave para almacenar configuración de workers
-    this.workersConfigKey = 'workers:config';
+    
+    this.redis.on('node error', (err, node) => {
+      console.error('❌ Redis Node Error:', node, err.message);
+    });
+    
+    this.redis.on('ready', () => {
+      console.log('✅ Redis Cluster READY');
+    });
+    
+    this.redis.on('connect', () => {
+      console.log('✅ Redis Cluster CONNECTED');
+    });
+    
+    this.redis.on('reconnecting', () => {
+      console.log('🔄 Redis Cluster RECONNECTING...');
+    });
+    
+    this.redis.on('+node', (node) => {
+      console.log('✅ Redis Node added:', node.options.host);
+    });
+    
+    console.log('🔗 Conectando a Redis en MODO CLUSTER con TLS');
+  } else {
+    // Modo standalone con TLS
+    this.redis = new Redis({
+      host: redisHost,
+      port: redisPort,
+      password: redisPassword || undefined,
+      db: options.redisDb || process.env.REDIS_DB || 0,
+      tls: redisTLS ? {
+        checkServerIdentity: () => undefined,
+        rejectUnauthorized: false
+      } : undefined,
+      connectTimeout: 20000,
+      retryStrategy: (times) => {
+        console.log(`🔄 Redis retry attempt ${times}/10`);
+        if (times > 10) {
+          console.error('❌ Redis: Max retry attempts reached');
+          return null;
+        }
+        return Math.min(times * 500, 3000);
+      },
+      maxRetriesPerRequest: 3,
+      enableReadyCheck: true,
+      lazyConnect: false,
+      family: 4
+    });
+    
+    this.redis.on('error', (err) => {
+      console.error('❌ Redis Error:', err.message);
+    });
+    
+    this.redis.on('ready', () => {
+      console.log('✅ Redis READY');
+    });
+    
+    this.redis.on('connect', () => {
+      console.log('✅ Redis CONNECTED');
+    });
+    
+    console.log('🔗 Conectando a Redis en MODO STANDALONE con TLS');
   }
 
-
+  this.workersConfigKey = 'workers:config';
+}
 
   async saveWorkerConfig(workerId, config) {
   try {

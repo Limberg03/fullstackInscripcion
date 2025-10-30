@@ -1,5 +1,20 @@
 // app.js - VERSIÓN REFACTORIZADA CON REDIS
-require('dotenv').config();
+
+// ✅ CAMBIO: Solo cargar .env en desarrollo
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+  console.log('📂 Archivo .env cargado (desarrollo)');
+} else {
+  console.log('🔧 Usando variables de entorno del sistema (producción)');
+}
+
+// ✅ NUEVO: Verificar variables críticas
+console.log('🔍 Verificando configuración:');
+console.log('  NODE_ENV:', process.env.NODE_ENV || 'development');
+console.log('  DB_HOST:', process.env.DB_HOST ? '✅' : '❌');
+console.log('  DB_USER:', process.env.DB_USER ? '✅' : '❌');
+console.log('  REDIS_HOST:', process.env.REDIS_HOST ? '✅' : '❌');
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -22,7 +37,6 @@ const PORT = process.env.PORT || 3000;
 
 // ================ MIDDLEWARE Y CONFIGURACIÓN ================
 
-// 🔥 CRÍTICO: CORS debe ir ANTES de Helmet
 app.use(cors({
   origin: '*',
   credentials: true,
@@ -30,35 +44,17 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Helmet DESPUÉS de CORS
+// ✅ Helmet MÍNIMO - Sin CSP ni headers problemáticos
 app.use(
   helmet({
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" }, // ✅ AÑADIDO
-    contentSecurityPolicy: {
-      directives: {
-        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "script-src": [
-          "'self'", 
-          "'unsafe-inline'", 
-          "https://cdnjs.cloudflare.com"
-        ],
-        "img-src": [
-          "'self'", 
-          "data:", 
-          "https:"
-        ],
-        "connect-src": [
-          "'self'", 
-          "https://cdnjs.cloudflare.com",
-          "http://localhost:5173", // Frontend en desarrollo
-          "http://localhost:3000",  // API
-          "http://192.168.1.9:3000"
-        ]
-      },
-    },
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+    originAgentCluster: false
   })
 );
+
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -67,7 +63,7 @@ app.use(requestTrackingMiddleware);
 app.use(requestLogger);
 
 // ================ RUTAS ================
-app.use('/public', express.static(path.join(__dirname, 'public')));
+ app.use('/public', express.static(path.join(__dirname, 'public')));
 
 app.use('/tracking', trackingRoutes);
 app.use('/', routes); 
@@ -105,12 +101,20 @@ const initializeApp = async () => {
     callbackService.setupDefaultCallbacks();
     console.log('✅ Sistema de Callbacks inicializado.');
 
-    queueService = new QueueService();
-    await queueService.initialize();
-    console.log('✅ Sistema de Colas con Redis inicializado.');
-
-    // 3. Verificar conexión a Redis
-    const redisInfo = await queueService.getRedisInfo();
+    // 3. Inicializar Queue Service con manejo de errores
+    console.log('🔄 Inicializando QueueService...');
+    try {
+      queueService = new QueueService();
+      await queueService.initialize();
+      console.log('✅ Sistema de Colas con Redis inicializado.');
+      
+      const redisInfo = await queueService.getRedisInfo();
+      // console.log('✅ Redis info:', redisInfo);
+    } catch (redisError) {
+      console.error('⚠️ Error al inicializar Redis:', redisError.message);
+      console.error('⚠️ Continuando sin sistema de colas...');
+      queueService = null;
+    }
 
     if (process.env.NODE_ENV === 'development') {
       await sequelize.sync();
@@ -122,11 +126,7 @@ const initializeApp = async () => {
     
   } catch (error) {
     console.error('❌ Error fatal al inicializar la aplicación:', error.message);
-    if (error.message.includes('Redis') || error.code === 'ECONNREFUSED') {
-      console.error('💡 SOLUCIÓN: Asegúrate de que el servidor Redis esté en ejecución y sea accesible.');
-      console.error('   - Docker: docker run -d -p 6379:6379 redis:alpine');
-      console.error('   - Local: redis-server');
-    }
+    console.error('Stack:', error.stack);
     process.exit(1);
   }
 };

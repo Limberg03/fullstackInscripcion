@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3000';
+// const API_URL = 'http://localhost:3000';
+
+// const API_URL = 'http://inscripcion-db.cho4yig62nii.us-east-2.rds.amazonaws.com:3000';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 const api = axios.create({
   baseURL: API_URL,
